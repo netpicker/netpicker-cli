@@ -1,3 +1,4 @@
+import sys
 import json
 import typer
 from tabulate import tabulate
@@ -5,8 +6,16 @@ from pathlib import Path
 from ..utils.config import load_settings
 from ..api.client import ApiClient
 from ..utils.files import atomic_write
+from typing import Optional
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
+
+def _as_items(data):
+    if isinstance(data, list):
+        return data
+    if isinstance(data, dict):
+        return data.get("items", [])
+    return []
 
 @app.command("recent")
 def recent(
@@ -16,7 +25,7 @@ def recent(
     s = load_settings()
     cli = ApiClient(s)
     data = cli.get(f"/api/v1/devices/{s.tenant}/recent-configs/", params={"limit": limit}).json()
-    items = data.get("items", data if isinstance(data, list) else [])
+    items = _as_items(data)
     if json_out:
         typer.echo(json.dumps(items, indent=2)); return
 
@@ -36,8 +45,8 @@ def list_configs(
     json_out: bool = typer.Option(False, "--json", "--json-out"),
 ):
     s = load_settings(); cli = ApiClient(s)
-    data = cli.get(f"/api/v1/devices/{s.tenant}/{ip}/configs", params={"limit": limit}).json()
-    items = data.get("items", data if isinstance(data, list) else [])
+    data = cli.get(f"/api/v1/devices/{s.tenant}/{ip}/configs").json()
+    items = _as_items(data)
     if json_out: typer.echo(json.dumps(items, indent=2)); return
     def _ts(it): return it.get("created_at") or it.get("upload_date")
     def _sz(it): return it.get("size") or it.get("file_size")
@@ -170,3 +179,66 @@ def backup_commands(
         typer.echo("Unrecognized response shape"); return
 
     typer.echo(tabulate(rows, headers=["platform", "command"]))
+
+@app.command("upload")
+def upload_config(
+    ip: str = typer.Argument(..., help="Device IP/hostname"),
+    file: str = typer.Option("-", "-f", "--file", help="Config file path or '-' for stdin"),
+    changed: bool = typer.Option(False, "--changed", help="Mark as changed (for pipelines)"),
+    json_out: bool = typer.Option(False, "--json", "--json-out"),
+):
+    """Upload a device config snapshot to NetPicker."""
+    s = load_settings()
+    cli = ApiClient(s)
+
+    if file == "-":
+        content = sys.stdin.read()
+    else:
+        with open(file, "r", encoding="utf-8") as fh:
+            content = fh.read()
+
+    payload = {
+        "content": content,
+        "changed": changed,
+    }
+    data = cli.post(f"/api/v1/devices/{s.tenant}/{ip}/configs", json=payload).json()
+    if json_out:
+        import json as _json
+        print(_json.dumps(data, indent=2))
+    else:
+        from tabulate import tabulate
+        cfg = (data or {}).get("config", {})
+        print(tabulate([[
+            cfg.get("id",""),
+            cfg.get("upload_date",""),
+            cfg.get("file_size",""),
+            cfg.get("digest",""),
+            data.get("changed",""),
+        ]], headers=["id","created_at","size","digest","changed"]))
+
+@app.command("history")
+def history(
+    ip: str = typer.Argument(..., help="Device IP/hostname"),
+    limit: int = typer.Option(20, "--limit", help="Max items"),
+    json_out: bool = typer.Option(False, "--json", "--json-out"),
+):
+    """Show backup history for a device."""
+    s = load_settings()
+    cli = ApiClient(s)
+    data = cli.get(f"/api/v1/devices/{s.tenant}/{ip}/config/history", params={"limit": limit}).json()
+    items = data.get("items", data if isinstance(data, list) else [])
+    if json_out:
+        import json as _json
+        print(_json.dumps(items, indent=2))
+    else:
+        from tabulate import tabulate
+        rows = []
+        for it in items:
+            rows.append([
+                it.get("id",""),
+                it.get("upload_date",""),
+                it.get("file_size",""),
+                it.get("digest",""),
+                (it.get("data") or {}).get("variables",{}).get("os_version",""),
+            ])
+        print(tabulate(rows, headers=["id","created_at","size","digest","os_version"]))
