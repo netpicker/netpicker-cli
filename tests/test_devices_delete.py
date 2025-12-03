@@ -1,7 +1,5 @@
 import respx
 import httpx
-from netpicker_cli.utils.config import Settings
-from netpicker_cli.api.client import ApiClient
 from netpicker_cli.commands.devices import delete_device
 
 @respx.mock

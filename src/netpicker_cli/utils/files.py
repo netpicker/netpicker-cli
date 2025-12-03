@@ -1,5 +1,6 @@
 from __future__ import annotations
-import os, tempfile
+import os
+import tempfile
 
 def atomic_write(path: str, data: bytes):
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)

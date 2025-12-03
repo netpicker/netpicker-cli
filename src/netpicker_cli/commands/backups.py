@@ -6,7 +6,7 @@ from pathlib import Path
 from ..utils.config import load_settings
 from ..api.client import ApiClient
 from ..utils.files import atomic_write
-from typing import Optional
+import difflib
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
@@ -16,6 +16,70 @@ def _as_items(data):
     if isinstance(data, dict):
         return data.get("items", [])
     return []
+
+@app.command("diff")
+def diff_configs(
+    ip: str = typer.Option(..., "--ip", help="Device IP/hostname"),
+    id_a: str = typer.Option("", "--id-a", help="(Optional) older config id; requires --ip"),
+    id_b: str = typer.Option("", "--id-b", help="(Optional) newer config id; requires --ip"),
+    context: int = typer.Option(3, "--context", help="Unified diff context lines"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="Output JSON with diff lines"),
+):
+    """
+    Diff two configs for a device.
+    - If --id-a/--id-b are omitted: diff the two most recent configs.
+    - If --id-a/--id-b are provided: both must be present (and --ip is required).
+    """
+    s = load_settings()
+    cli = ApiClient(s)
+
+    def download(cfg_id: str) -> str:
+        blob = cli.get_binary(f"/api/v1/devices/{s.tenant}/{ip}/configs/{cfg_id}")
+        return blob.decode("utf-8", errors="replace")
+
+    # Resolve IDs if not supplied
+    if not id_a or not id_b:
+        data = cli.get(f"/api/v1/devices/{s.tenant}/{ip}/configs", params={"limit": 2}).json()
+        items = data if isinstance(data, list) else data.get("items", [])
+        if len(items) < 2:
+            typer.secho("Not enough configs to diff (need at least 2).", fg=typer.colors.RED)
+            raise typer.Exit(code=2)
+
+        # Oldest -> newest (fallback if timestamps odd)
+        def _ts(it): return it.get("created_at") or it.get("upload_date") or ""
+        try:
+            items = sorted(items[:2], key=_ts)
+        except Exception:
+            items = items[:2]
+
+        id_a = str(items[0].get("id") or items[0].get("config_id"))
+        id_b = str(items[1].get("id") or items[1].get("config_id"))
+    else:
+        # both ids provided: sanity check
+        if not (id_a.strip() and id_b.strip()):
+            typer.secho("Both --id-a and --id-b must be provided (or omit both).", fg=typer.colors.RED)
+            raise typer.Exit(code=3)
+
+    # Fetch and diff
+    a_text = download(id_a).splitlines()
+    b_text = download(id_b).splitlines()
+
+    a_name = f"{ip}-{id_a}"
+    b_name = f"{ip}-{id_b}"
+    diff_lines = list(difflib.unified_diff(a_text, b_text, fromfile=a_name, tofile=b_name, n=context))
+
+    if json_out:
+        typer.echo(json.dumps({"id_a": id_a, "id_b": id_b, "diff": diff_lines}, indent=2))
+    else:
+        for line in diff_lines:
+            if line.startswith("+") and not line.startswith("+++"):
+                typer.secho(line, fg=typer.colors.GREEN)
+            elif line.startswith("-") and not line.startswith("---"):
+                typer.secho(line, fg=typer.colors.RED)
+            else:
+                typer.echo(line)
+
+
 
 @app.command("recent")
 def recent(

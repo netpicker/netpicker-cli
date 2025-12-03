@@ -1,8 +1,9 @@
 from __future__ import annotations
 from typing import Any, Dict, Optional
-import time, random
+import time
+import random
 import httpx
-from .errors import ApiError, Unauthorized, TooManyRequests, ServerError
+from .errors import Unauthorized, TooManyRequests, ServerError
 from ..utils.config import Settings
 
 class ApiClient:
@@ -56,3 +57,12 @@ class ApiClient:
 
     def delete(self, url: str, params: dict | None = None) -> httpx.Response:
         return self._request("DELETE", url, params=params)
+
+    def close(self) -> None:
+        self._client.close()
+
+    def __enter__(self) -> "ApiClient":
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
