@@ -86,6 +86,13 @@ def recent(
     limit: int = 10,
     json_out: bool = typer.Option(False, "--json", "--json-out", help="Output JSON instead of table"),
 ):
+    """
+    List the most recent configuration backups across devices.
+
+    Calls GET /api/v1/devices/{tenant}/recent-configs/ with optional
+    `limit` and prints a table of `device`, `ip`, `config_id`, `created_at`,
+    `size`, and `error`. Use `--json` to output raw JSON.
+    """
     s = load_settings()
     cli = ApiClient(s)
     data = cli.get(f"/api/v1/devices/{s.tenant}/recent-configs/", params={"limit": limit}).json()
@@ -108,6 +115,13 @@ def list_configs(
     limit: int = 20,
     json_out: bool = typer.Option(False, "--json", "--json-out"),
 ):
+    """
+    List configuration backups for a single device.
+
+    Calls GET /api/v1/devices/{tenant}/{ip}/configs and prints recent config
+    entries for the given `--ip`. Use `--limit` to restrict results and
+    `--json` to output raw JSON instead of a table.
+    """
     s = load_settings(); cli = ApiClient(s)
     data = cli.get(f"/api/v1/devices/{s.tenant}/{ip}/configs").json()
     items = _as_items(data)
@@ -123,6 +137,13 @@ def fetch(
     id: str = typer.Option(..., "--id"),
     output: Path = typer.Option(Path("."), "--output", "-o", help="Directory to save file"),
 ):
+    """
+    Fetch a device config blob and save it to disk.
+
+    Calls GET /api/v1/devices/{tenant}/{ip}/configs/{id} and writes the
+    binary content to `<output>/<ip>-<id>.cfg`. Use `--output` to change the
+    destination directory (defaults to current directory).
+    """
     s = load_settings(); cli = ApiClient(s)
     blob = cli.get_binary(f"/api/v1/devices/{s.tenant}/{ip}/configs/{id}")
     output.mkdir(parents=True, exist_ok=True)
@@ -286,23 +307,55 @@ def history(
     limit: int = typer.Option(20, "--limit", help="Max items"),
     json_out: bool = typer.Option(False, "--json", "--json-out"),
 ):
-    """Show backup history for a device."""
+    """
+    Show backup history for a device.
+
+    Example:
+      netpicker backups history 192.168.60.194
+
+      netpicker backups history 192.168.60.194 --json
+    """
     s = load_settings()
     cli = ApiClient(s)
     data = cli.get(f"/api/v1/devices/{s.tenant}/{ip}/config/history", params={"limit": limit}).json()
-    items = data.get("items", data if isinstance(data, list) else [])
+    # API may return either a dict with an "items" key or a bare list.
+    if isinstance(data, list):
+        items = data
+    elif isinstance(data, dict):
+        items = data.get("items", [])
+    else:
+        items = []
     if json_out:
         import json as _json
         print(_json.dumps(items, indent=2))
     else:
         from tabulate import tabulate
+        if not items:
+            typer.echo("No history entries returned for this device.")
+            return
+
+        def _get_created_at(it):
+            return it.get("timestamp") or it.get("upload_date") or it.get("created_at") or ""
+
+        def _get_id(it):
+            return it.get("id") or it.get("commit") or it.get("object") or it.get("config_id") or ""
+
+        def _get_size(it):
+            return it.get("size") or it.get("file_size") or ""
+
+        def _get_digest(it):
+            return it.get("digest") or it.get("hash") or it.get("commit") or ""
+
+        def _get_os(it):
+            return (it.get("data") or {}).get("variables", {}).get("os_version", "")
+
         rows = []
         for it in items:
             rows.append([
-                it.get("id",""),
-                it.get("upload_date",""),
-                it.get("file_size",""),
-                it.get("digest",""),
-                (it.get("data") or {}).get("variables",{}).get("os_version",""),
+                _get_id(it),
+                _get_created_at(it),
+                _get_size(it),
+                _get_digest(it),
+                _get_os(it),
             ])
         print(tabulate(rows, headers=["id","created_at","size","digest","os_version"]))

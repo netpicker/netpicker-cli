@@ -11,6 +11,6 @@ def health():
 
 app.command("whoami")(whoami)
 
-app.add_typer(auth.app, name="login", help="Authenticate and store token")
+app.add_typer(auth.app, name="auth", help="Authentication commands")
 app.add_typer(backups.app, name="backups", help="Backup and config operations")
 app.add_typer(devices.app, name="devices", help="List and manage devices")
