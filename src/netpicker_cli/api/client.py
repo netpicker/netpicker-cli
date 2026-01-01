@@ -30,13 +30,26 @@ class ApiClient:
                 if r.status_code == 429:
                     raise TooManyRequests("Rate limited")
                 if 500 <= r.status_code < 600:
-                    raise ServerError(f"Server error {r.status_code}")
+                    body = ""
+                    try:
+                        body = r.text
+                    except Exception:
+                        body = "<unavailable>"
+                    snippet = (body[:500] + "...") if len(body) > 500 else body
+                    raise ServerError(f"Server error {r.status_code}: {snippet}")
             # For any other 4xx that slipped through, raise as ApiError after raise_for_status
                 try:
                     r.raise_for_status()
                 except httpx.HTTPStatusError as e:
                     from .errors import ApiError
-                    raise ApiError(str(e)) from e
+                    # include a short response body snippet when available
+                    body = ""
+                    try:
+                        body = r.text
+                    except Exception:
+                        body = "<unavailable>"
+                    snippet = (body[:500] + "...") if len(body) > 500 else body
+                    raise ApiError(f"{str(e)}: {snippet}") from e
                 return r
             except (TooManyRequests, ServerError):
                 if attempt == retries: raise
