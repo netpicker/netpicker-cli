@@ -37,3 +37,66 @@ pip install -e .
 # If keyring backend complains on Linux:
 pip install keyrings.alt
 export PYTHON_KEYRING_BACKEND=keyrings.alt.file.PlaintextKeyring
+```
+
+Here’s a **drop-in README section** you can paste in to cover install + configuration/auth:
+
+## Configure & authenticate
+
+You can set credentials either via an interactive login (recommended) or environment variables.
+
+### Option A — Recommended (stores token in OS keyring)
+
+```bash
+netpicker auth login \
+  --base-url https://YOUR-NETPICKER-URL \
+  --tenant YOUR_TENANT \
+  --token YOUR_API_TOKEN
+```
+
+* URL & tenant are saved to `~/.config/netpicker/config.json` (no secrets).
+* The token is stored in your OS keyring (or plaintext keyring if you used `keyrings.alt`).
+
+### Option B — Environment variables (useful for CI)
+
+**Unix/macOS (bash/zsh):**
+
+```bash
+export NETPICKER_BASE_URL="https://YOUR-NETPICKER-URL"
+export NETPICKER_TENANT="YOUR_TENANT"
+export NETPICKER_TOKEN="YOUR_API_TOKEN"
+```
+
+**Windows PowerShell:**
+
+```powershell
+$env:NETPICKER_BASE_URL = "https://YOUR-NETPICKER-URL"
+$env:NETPICKER_TENANT   = "YOUR_TENANT"
+$env:NETPICKER_TOKEN    = "YOUR_API_TOKEN"
+```
+
+> Env vars (if set) **override** values from the config/keyring.
+
+**TLS / timeouts (optional):**
+
+```bash
+export NETPICKER_TIMEOUT=30          # request timeout in seconds
+export NETPICKER_INSECURE=1          # skip TLS verification (or use NETPICKER_VERIFY=0)
+```
+
+## Quick check
+
+```bash
+netpicker whoami --json | jq .
+netpicker health
+netpicker devices list --limit 5
+```
+
+## Common gotchas
+
+* **“No token found”** → Run `netpicker auth login` or set `NETPICKER_TOKEN`.
+* **403 Forbidden** → Tenant mismatch or token lacks `access:api` scope.
+* **Seeing too few devices** → The API paginates. Use:
+
+  * `netpicker devices list --all` to walk pages, or
+  * `netpicker devices list --limit N --offset M` for manual paging.
