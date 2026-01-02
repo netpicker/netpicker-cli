@@ -62,9 +62,9 @@ def _env_bool(name: str, *, default: bool = False) -> bool:
 
 def load_settings() -> Settings:
     # Normalize base_url by removing trailing slash (prevents double-slash URLs)
-    base = os.environ.get("NETPICKER_BASE_URL", "https://dev.netpicker.io").rstrip("/")
-    tenant = os.environ.get("NETPICKER_TENANT", "DefaultTenant")
-    token = os.environ.get("NETPICKER_TOKEN","eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxNTMxMDA0MjUyNTI5Mzc3MjgiLCJjbGFpbXMiOnsiZW1haWwiOiJhZG1pbkBhZG1pbi5jb20iLCJwZXJzaXN0ZW50X3Rva2VuIjp0cnVlfSwic2NvcGVzIjpbImFjY2VzczphcGkiXSwiZXhwIjoiMzI1MDM2NzY0MDQiLCJhdWQiOiJodHRwczovL2Rldi5uZXR5Y2UuY29tIn0.wGsy9Gmz-UFC3RgGwdIiuZNf4L-pq11Y1I6KZVNzudA")
+    base = os.environ.get("NETPICKER_BASE_URL")
+    tenant = os.environ.get("NETPICKER_TENANT")
+    token = os.environ.get("NETPICKER_TOKEN")
 
     # Support both knobs:
     # - NETPICKER_INSECURE=1 -> insecure True (skip TLS verify)
