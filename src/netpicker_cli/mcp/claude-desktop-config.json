@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "netpicker": {
+      "command": "netpicker-mcp",
+      "env": {
+        "NETPICKER_BASE_URL": "https://your-netpicker-instance.com",
+        "NETPICKER_TENANT": "your-tenant-name",
+        "NETPICKER_TOKEN": "your-api-token-here"
+      }
+    }
+  }
+}
