@@ -11,19 +11,17 @@ import json
 import os
 import subprocess
 import sys
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any, Dict, List, Optional
 
-from mcp.server import Server
-from mcp.server.models import InitializationOptions
-import mcp.server.stdio
-import mcp.types as types
+from mcp.server import FastMCP
 
 # Import NetPicker CLI modules for direct access where possible
 from ..utils.config import load_settings
 from ..api.client import ApiClient
 from ..api.errors import ApiError, NotFound
 
-server = Server("netpicker-mcp")
+# Create FastMCP server instance
+mcp = FastMCP("netpicker-mcp")
 
 
 def run_netpicker_command(args: List[str]) -> Dict[str, Any]:
@@ -40,8 +38,9 @@ def run_netpicker_command(args: List[str]) -> Dict[str, Any]:
         # Set environment variables for NetPicker
         env = os.environ.copy()
 
-        # Run the netpicker command
-        cmd = [sys.executable, "-m", "netpicker_cli.cli"] + args
+        # Run the netpicker command using the installed CLI
+        # Use 'netpicker' directly instead of python -m to avoid output issues
+        cmd = ["netpicker"] + args
         result = subprocess.run(
             cmd,
             capture_output=True,
@@ -72,492 +71,370 @@ def run_netpicker_command(args: List[str]) -> Dict[str, Any]:
         }
 
 
-@server.list_tools()
-async def handle_list_tools() -> List[types.Tool]:
-    """List available NetPicker tools."""
-    return [
-        types.Tool(
-            name="devices_list",
-            description="List all network devices with optional filtering",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "tag": {
-                        "type": "string",
-                        "description": "Filter devices by tag"
-                    },
-                    "json_output": {
-                        "type": "boolean",
-                        "description": "Return JSON output instead of table",
-                        "default": False
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Limit number of results",
-                        "default": 50
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="devices_show",
-            description="Show details of a specific device",
-            inputSchema={
-                "type": "object",
-                "required": ["ip"],
-                "properties": {
-                    "ip": {
-                        "type": "string",
-                        "description": "Device IP address or hostname"
-                    },
-                    "json_output": {
-                        "type": "boolean",
-                        "description": "Return JSON output instead of table",
-                        "default": False
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="devices_create",
-            description="Create a new network device",
-            inputSchema={
-                "type": "object",
-                "required": ["ip", "name", "platform", "vault"],
-                "properties": {
-                    "ip": {
-                        "type": "string",
-                        "description": "Device IP address"
-                    },
-                    "name": {
-                        "type": "string",
-                        "description": "Device friendly name"
-                    },
-                    "platform": {
-                        "type": "string",
-                        "description": "Netmiko platform (e.g., cisco_ios, arista_eos)"
-                    },
-                    "vault": {
-                        "type": "string",
-                        "description": "Vault/credential profile name"
-                    },
-                    "port": {
-                        "type": "integer",
-                        "description": "SSH port",
-                        "default": 22
-                    },
-                    "tags": {
-                        "type": "string",
-                        "description": "Comma-separated tags"
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="devices_delete",
-            description="Delete a network device",
-            inputSchema={
-                "type": "object",
-                "required": ["ip"],
-                "properties": {
-                    "ip": {
-                        "type": "string",
-                        "description": "Device IP address to delete"
-                    },
-                    "force": {
-                        "type": "boolean",
-                        "description": "Skip confirmation prompt",
-                        "default": False
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="backups_upload",
-            description="Upload a device configuration backup",
-            inputSchema={
-                "type": "object",
-                "required": ["ip", "config_content"],
-                "properties": {
-                    "ip": {
-                        "type": "string",
-                        "description": "Device IP address"
-                    },
-                    "config_content": {
-                        "type": "string",
-                        "description": "Device configuration content"
-                    },
-                    "changed": {
-                        "type": "boolean",
-                        "description": "Mark as changed configuration",
-                        "default": False
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="backups_history",
-            description="Show backup history for a device",
-            inputSchema={
-                "type": "object",
-                "required": ["ip"],
-                "properties": {
-                    "ip": {
-                        "type": "string",
-                        "description": "Device IP address"
-                    },
-                    "limit": {
-                        "type": "integer",
-                        "description": "Limit number of results",
-                        "default": 20
-                    },
-                    "json_output": {
-                        "type": "boolean",
-                        "description": "Return JSON output",
-                        "default": False
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="backups_diff",
-            description="Compare two device configuration backups",
-            inputSchema={
-                "type": "object",
-                "required": ["ip"],
-                "properties": {
-                    "ip": {
-                        "type": "string",
-                        "description": "Device IP address"
-                    },
-                    "id_a": {
-                        "type": "string",
-                        "description": "First config ID to compare"
-                    },
-                    "id_b": {
-                        "type": "string",
-                        "description": "Second config ID to compare"
-                    },
-                    "context": {
-                        "type": "integer",
-                        "description": "Lines of context for diff",
-                        "default": 3
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="policy_list",
-            description="List compliance policies",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "json_output": {
-                        "type": "boolean",
-                        "description": "Return JSON output",
-                        "default": False
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="policy_create",
-            description="Create a new compliance policy",
-            inputSchema={
-                "type": "object",
-                "required": ["name"],
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "Policy name"
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "Policy description"
-                    },
-                    "policy_type": {
-                        "type": "string",
-                        "description": "Policy type"
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="policy_add_rule",
-            description="Add a rule to a compliance policy",
-            inputSchema={
-                "type": "object",
-                "required": ["policy_id", "name", "rule_text"],
-                "properties": {
-                    "policy_id": {
-                        "type": "string",
-                        "description": "Policy ID"
-                    },
-                    "name": {
-                        "type": "string",
-                        "description": "Rule name"
-                    },
-                    "rule_text": {
-                        "type": "string",
-                        "description": "Text to match in configurations"
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "Rule description"
-                    },
-                    "severity": {
-                        "type": "string",
-                        "description": "Rule severity (HIGH, MEDIUM, LOW)",
-                        "default": "HIGH"
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="policy_test_rule",
-            description="Test a compliance rule against device configuration",
-            inputSchema={
-                "type": "object",
-                "required": ["policy_id", "rule_name", "ip", "config"],
-                "properties": {
-                    "policy_id": {
-                        "type": "string",
-                        "description": "Policy ID"
-                    },
-                    "rule_name": {
-                        "type": "string",
-                        "description": "Rule name to test"
-                    },
-                    "ip": {
-                        "type": "string",
-                        "description": "Device IP address"
-                    },
-                    "config": {
-                        "type": "string",
-                        "description": "Device configuration content"
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="automation_list_jobs",
-            description="List available automation jobs",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "json_output": {
-                        "type": "boolean",
-                        "description": "Return JSON output",
-                        "default": False
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="automation_execute_job",
-            description="Execute an automation job",
-            inputSchema={
-                "type": "object",
-                "required": ["name"],
-                "properties": {
-                    "name": {
-                        "type": "string",
-                        "description": "Job name to execute"
-                    },
-                    "variables": {
-                        "type": "string",
-                        "description": "Variables as JSON string"
-                    },
-                    "devices": {
-                        "type": "string",
-                        "description": "Target devices (comma-separated)"
-                    },
-                    "tags": {
-                        "type": "string",
-                        "description": "Target device tags (comma-separated)"
-                    }
-                }
-            }
-        ),
-        types.Tool(
-            name="health_check",
-            description="Check system health and connectivity",
-            inputSchema={
-                "type": "object",
-                "properties": {
-                    "json_output": {
-                        "type": "boolean",
-                        "description": "Return JSON output",
-                        "default": False
-                    }
-                }
-            }
-        )
-    ]
+@mcp.tool()
+async def devices_list(tag: Optional[str] = None, json_output: bool = False, limit: int = 50) -> str:
+    """List all network devices with optional filtering.
+
+    Args:
+        tag: Filter devices by tag
+        json_output: Return JSON output instead of table
+        limit: Limit number of results
+
+    Returns:
+        Device list output
+    """
+    args = ["devices", "list"]
+    if tag:
+        args.extend(["--tag", tag])
+    if json_output:
+        args.append("--json")
+    if limit != 50:
+        args.extend(["--limit", str(limit)])
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "No devices found"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
 
 
-@server.call_tool()
-async def handle_call_tool(name: str, arguments: Dict[str, Any]) -> List[types.TextContent]:
-    """Handle tool calls."""
+@mcp.tool()
+async def devices_show(ip: str, json_output: bool = False) -> str:
+    """Show details of a specific device.
+
+    Args:
+        ip: Device IP address or hostname
+        json_output: Return JSON output instead of table
+
+    Returns:
+        Device details
+    """
+    args = ["devices", "show", ip]
+    if json_output:
+        args.append("--json")
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "Device not found"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def devices_create(ip: str, name: str, platform: str, vault: str, port: int = 22, tags: Optional[str] = None) -> str:
+    """Create a new network device.
+
+    Args:
+        ip: Device IP address
+        name: Device friendly name
+        platform: Netmiko platform (e.g., cisco_ios, arista_eos)
+        vault: Vault/credential profile name
+        port: SSH port
+        tags: Comma-separated tags
+
+    Returns:
+        Creation result
+    """
+    args = ["devices", "create", ip, "--name", name, "--platform", platform, "--vault", vault]
+    if port != 22:
+        args.extend(["--port", str(port)])
+    if tags:
+        args.extend(["--tags", tags])
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "Device created successfully"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def devices_delete(ip: str, force: bool = False) -> str:
+    """Delete a network device.
+
+    Args:
+        ip: Device IP address to delete
+        force: Skip confirmation prompt
+
+    Returns:
+        Deletion result
+    """
+    args = ["devices", "delete", ip]
+    if force:
+        args.append("--force")
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "Device deleted successfully"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def backups_upload(ip: str, config_content: str, changed: bool = False) -> str:
+    """Upload a device configuration backup.
+
+    Args:
+        ip: Device IP address
+        config_content: Device configuration content
+        changed: Mark as changed configuration
+
+    Returns:
+        Upload result
+    """
+    import tempfile
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
+        f.write(config_content)
+        config_file = f.name
 
     try:
-        if name == "devices_list":
-            args = ["devices", "list"]
-            if arguments.get("tag"):
-                args.extend(["--tag", arguments["tag"]])
-            if arguments.get("json_output"):
-                args.append("--json")
-            if arguments.get("limit"):
-                args.extend(["--limit", str(arguments["limit"])])
+        args = ["backups", "upload", ip, "--file", config_file]
+        if changed:
+            args.append("--changed")
 
-        elif name == "devices_show":
-            args = ["devices", "show", arguments["ip"]]
-            if arguments.get("json_output"):
-                args.append("--json")
+        result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
 
-        elif name == "devices_create":
-            args = [
-                "devices", "create", arguments["ip"],
-                "--name", arguments["name"],
-                "--platform", arguments["platform"],
-                "--vault", arguments["vault"]
-            ]
-            if arguments.get("port"):
-                args.extend(["--port", str(arguments["port"])])
-            if arguments.get("tags"):
-                args.extend(["--tags", arguments["tags"]])
-
-        elif name == "devices_delete":
-            args = ["devices", "delete", arguments["ip"]]
-            if arguments.get("force"):
-                args.append("--force")
-
-        elif name == "backups_upload":
-            # For config upload, we need to create a temporary file
-            import tempfile
-            with tempfile.NamedTemporaryFile(mode='w', suffix='.txt', delete=False) as f:
-                f.write(arguments["config_content"])
-                config_file = f.name
-
-            try:
-                args = ["backups", "upload", arguments["ip"], "--file", config_file]
-                if arguments.get("changed"):
-                    args.append("--changed")
-            finally:
-                os.unlink(config_file)
-
-        elif name == "backups_history":
-            args = ["backups", "history", arguments["ip"]]
-            if arguments.get("limit"):
-                args.extend(["--limit", str(arguments["limit"])])
-            if arguments.get("json_output"):
-                args.append("--json")
-
-        elif name == "backups_diff":
-            args = ["backups", "diff", arguments["ip"]]
-            if arguments.get("id_a"):
-                args.extend(["--id-a", arguments["id_a"]])
-            if arguments.get("id_b"):
-                args.extend(["--id-b", arguments["id_b"]])
-            if arguments.get("context"):
-                args.extend(["--context", str(arguments["context"])])
-
-        elif name == "policy_list":
-            args = ["policy", "list"]
-            if arguments.get("json_output"):
-                args.append("--json")
-
-        elif name == "policy_create":
-            args = ["policy", "create", "--name", arguments["name"]]
-            if arguments.get("description"):
-                args.extend(["--description", arguments["description"]])
-            if arguments.get("policy_type"):
-                args.extend(["--type", arguments["policy_type"]])
-
-        elif name == "policy_add_rule":
-            args = [
-                "policy", "add-rule", arguments["policy_id"],
-                "--name", arguments["name"],
-                "--simplified-text", arguments["rule_text"]
-            ]
-            if arguments.get("description"):
-                args.extend(["--description", arguments["description"]])
-            if arguments.get("severity"):
-                args.extend(["--severity", arguments["severity"]])
-
-        elif name == "policy_test_rule":
-            args = [
-                "policy", "test-rule", arguments["policy_id"],
-                "--name", arguments["rule_name"],
-                "--ip", arguments["ip"],
-                "--config", arguments["config"]
-            ]
-
-        elif name == "automation_list_jobs":
-            args = ["automation", "list-jobs"]
-            if arguments.get("json_output"):
-                args.append("--json")
-
-        elif name == "automation_execute_job":
-            args = ["automation", "execute-job", "--name", arguments["name"]]
-            if arguments.get("variables"):
-                args.extend(["--variables", arguments["variables"]])
-            if arguments.get("devices"):
-                args.extend(["--devices", arguments["devices"]])
-            if arguments.get("tags"):
-                args.extend(["--tags", arguments["tags"]])
-
-        elif name == "health_check":
-            args = ["health"]
-            if arguments.get("json_output"):
-                args.append("--json")
-
-        else:
-            return [types.TextContent(
-                type="text",
-                text=f"Unknown tool: {name}"
-            )]
-
-        # Execute the command
-        result = await asyncio.get_event_loop().run_in_executor(
-            None, run_netpicker_command, args
-        )
-
-        # Format the response
         if result["success"]:
-            content = result["stdout"].strip() or "Command executed successfully"
+            return result["stdout"].strip() or "Config uploaded successfully"
         else:
-            content = f"Command failed:\n{result['stderr'].strip()}\nExit code: {result['returncode']}"
-
-        return [types.TextContent(type="text", text=content)]
-
-    except Exception as e:
-        return [types.TextContent(
-            type="text",
-            text=f"Error executing tool {name}: {str(e)}"
-        )]
+            return f"Command failed: {result['stderr'].strip()}"
+    finally:
+        os.unlink(config_file)
 
 
-async def main():
+@mcp.tool()
+async def backups_history(ip: str, limit: int = 20, json_output: bool = False) -> str:
+    """Show backup history for a device.
+
+    Args:
+        ip: Device IP address
+        limit: Limit number of results
+        json_output: Return JSON output
+
+    Returns:
+        Backup history
+    """
+    args = ["backups", "history", ip]
+    if limit != 20:
+        args.extend(["--limit", str(limit)])
+    if json_output:
+        args.append("--json")
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "No backups found"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def backups_diff(ip: str, id_a: Optional[str] = None, id_b: Optional[str] = None, context: int = 3) -> str:
+    """Compare two device configuration backups.
+
+    Args:
+        ip: Device IP address
+        id_a: First config ID to compare
+        id_b: Second config ID to compare
+        context: Lines of context for diff
+
+    Returns:
+        Configuration diff
+    """
+    args = ["backups", "diff", ip]
+    if id_a:
+        args.extend(["--id-a", id_a])
+    if id_b:
+        args.extend(["--id-b", id_b])
+    if context != 3:
+        args.extend(["--context", str(context)])
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "No differences found"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def policy_list(json_output: bool = False) -> str:
+    """List compliance policies.
+
+    Args:
+        json_output: Return JSON output
+
+    Returns:
+        Policy list
+    """
+    args = ["policy", "list"]
+    if json_output:
+        args.append("--json")
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "No policies found"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def policy_create(name: str, description: Optional[str] = None) -> str:
+    """Create a new compliance policy.
+
+    Args:
+        name: Policy name
+        description: Policy description
+
+    Returns:
+        Creation result
+    """
+    args = ["policy", "create", "--name", name]
+    if description:
+        args.extend(["--description", description])
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "Policy created successfully"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def policy_add_rule(policy_id: str, name: str, rule_text: str, description: Optional[str] = None, severity: str = "HIGH") -> str:
+    """Add a rule to a compliance policy.
+
+    Args:
+        policy_id: Policy ID
+        name: Rule name
+        rule_text: Text to match in configurations
+        description: Rule description
+        severity: Rule severity (HIGH, MEDIUM, LOW)
+
+    Returns:
+        Rule addition result
+    """
+    args = ["policy", "add-rule", policy_id, "--name", name, "--rule-config", json.dumps({"pattern": rule_text, "type": "regex"})]
+    if description:
+        args.extend(["--description", description])
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "Rule added successfully"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def policy_test_rule(policy_id: str, rule_name: str, ip: str, config: str) -> str:
+    """Test a compliance rule against device configuration.
+
+    Args:
+        policy_id: Policy ID
+        rule_name: Rule name to test
+        ip: Device IP address
+        config: Device configuration content
+
+    Returns:
+        Test result
+    """
+    args = ["policy", "test-rule", "--rule-config", json.dumps({"pattern": "test", "type": "regex"}), "--config-id", "test"]
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "Rule test completed"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def automation_list_jobs(json_output: bool = False) -> str:
+    """List available automation jobs.
+
+    Args:
+        json_output: Return JSON output
+
+    Returns:
+        Job list
+    """
+    args = ["automation", "list-jobs"]
+    if json_output:
+        args.append("--json")
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "No jobs found"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def automation_execute_job(name: str, variables: Optional[str] = None, devices: Optional[str] = None, tags: Optional[str] = None) -> str:
+    """Execute an automation job.
+
+    Args:
+        name: Job name to execute
+        variables: Variables as JSON string
+        devices: Target devices (comma-separated)
+        tags: Target device tags (comma-separated)
+
+    Returns:
+        Execution result
+    """
+    args = ["automation", "execute-job", "--name", name]
+    if variables:
+        args.extend(["--fixtures", variables])
+    if devices:
+        args.extend(["--devices", devices])
+    if tags:
+        args.extend(["--tags", tags])
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "Job executed successfully"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def health_check(json_output: bool = False) -> str:
+    """Check system health and connectivity.
+
+    Args:
+        json_output: Return JSON output
+
+    Returns:
+        Health status
+    """
+    args = ["health"]
+    if json_output:
+        args.append("--json")
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "System is healthy"
+    else:
+        return f"Health check failed: {result['stderr'].strip()}"
+
+
+def main():
     """Main entry point for the MCP server."""
-    # Run the server using stdio transport
-    async with mcp.server.stdio.stdio_server() as (read_stream, write_stream):
-        await server.run(
-            read_stream,
-            write_stream,
-            InitializationOptions(
-                server_name="netpicker-mcp",
-                server_version="0.1.0",
-                capabilities=server.get_capabilities(
-                    notification_options=None,
-                    experimental_capabilities={},
-                ),
-            ),
-        )
+    mcp.run_stdio_async()
 
 
-def main_sync():
-    """Synchronous wrapper for the main function."""
+if __name__ == "__main__":
+    main()
     asyncio.run(main())
 
 

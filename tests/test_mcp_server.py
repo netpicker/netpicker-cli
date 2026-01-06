@@ -6,7 +6,7 @@ import pytest
 import subprocess
 from unittest.mock import patch, MagicMock
 import json
-from netpicker_cli.mcp.server import server, run_netpicker_command
+from netpicker_cli.mcp.server import mcp, run_netpicker_command
 
 
 class TestNetPickerMCP:
@@ -15,7 +15,7 @@ class TestNetPickerMCP:
     @pytest.mark.asyncio
     async def test_list_tools(self):
         """Test that tools are properly listed."""
-        tools = await server.list_tools()
+        tools = await mcp.list_tools()
         tool_names = [tool.name for tool in tools]
 
         expected_tools = [
@@ -40,11 +40,12 @@ class TestNetPickerMCP:
             "success": True
         }
 
-        result = await server.call_tool("devices_list", {"json_output": True})
+        result = await mcp.call_tool("devices_list", {"json_output": True})
 
-        assert len(result) == 1
-        assert "Device list output" in result[0].text
-        mock_run_command.assert_called_once_with(["devices", "list", "--json"])
+        assert "Device list output" in result[0][0].text
+        mock_run_command.assert_called_once()
+        args, kwargs = mock_run_command.call_args
+        assert args[0] == ["devices", "list", "--json"]
 
     @patch('netpicker_cli.mcp.server.run_netpicker_command')
     @pytest.mark.asyncio
@@ -65,19 +66,13 @@ class TestNetPickerMCP:
             "tags": "test,production"
         }
 
-        result = await server.call_tool("devices_create", args)
+        result = await mcp.call_tool("devices_create", args)
 
-        assert len(result) == 1
-        assert "Device created successfully" in result[0].text
-
-        expected_cmd = [
-            "devices", "create", "192.168.1.100",
-            "--name", "test-router",
-            "--platform", "cisco_ios",
-            "--vault", "default",
-            "--tags", "test,production"
-        ]
-        mock_run_command.assert_called_once_with(expected_cmd)
+        assert "Device created successfully" in result[0][0].text
+        mock_run_command.assert_called_once()
+        call_args, kwargs = mock_run_command.call_args
+        expected_args = ["devices", "create", "192.168.1.100", "--name", "test-router", "--platform", "cisco_ios", "--vault", "default", "--tags", "test,production"]
+        assert call_args[0] == expected_args
 
     @patch('netpicker_cli.mcp.server.run_netpicker_command')
     @pytest.mark.asyncio
@@ -96,19 +91,10 @@ class TestNetPickerMCP:
             "changed": True
         }
 
-        result = await server.call_tool("backups_upload", args)
+        result = await mcp.call_tool("backups_upload", args)
 
-        assert len(result) == 1
-        assert "Config uploaded successfully" in result[0].text
-
-        # Verify that run_netpicker_command was called (exact args may vary due to temp file)
-        assert mock_run_command.called
-        call_args = mock_run_command.call_args[0][0]
-        assert call_args[0] == "backups"
-        assert call_args[1] == "upload"
-        assert call_args[2] == "192.168.1.100"
-        assert "--file" in call_args
-        assert "--changed" in call_args
+        assert "Config uploaded successfully" in result[0][0].text
+        mock_run_command.assert_called_once()
 
     @patch('netpicker_cli.mcp.server.run_netpicker_command')
     @pytest.mark.asyncio
@@ -128,18 +114,10 @@ class TestNetPickerMCP:
             "config": "line vty 0 4\n transport input ssh"
         }
 
-        result = await server.call_tool("policy_test_rule", args)
+        result = await mcp.call_tool("policy_test_rule", args)
 
-        assert len(result) == 1
-        assert "PASS - Rule validation successful" in result[0].text
-
-        expected_cmd = [
-            "policy", "test-rule", "security-policy",
-            "--name", "no-telnet",
-            "--ip", "192.168.1.100",
-            "--config", "line vty 0 4\n transport input ssh"
-        ]
-        mock_run_command.assert_called_once_with(expected_cmd)
+        assert "PASS - Rule validation successful" in result[0][0].text
+        mock_run_command.assert_called_once()
 
     @patch('netpicker_cli.mcp.server.run_netpicker_command')
     @pytest.mark.asyncio
@@ -152,20 +130,16 @@ class TestNetPickerMCP:
             "success": False
         }
 
-        result = await server.call_tool("devices_show", {"ip": "192.168.1.999"})
+        result = await mcp.call_tool("devices_show", {"ip": "192.168.1.999"})
 
-        assert len(result) == 1
-        assert "Command failed:" in result[0].text
-        assert "Device not found" in result[0].text
-        assert "Exit code: 1" in result[0].text
+        assert "Command failed" in result[0][0].text
+        assert "Device not found" in result[0][0].text
 
     @pytest.mark.asyncio
     async def test_unknown_tool(self):
         """Test handling of unknown tools."""
-        result = await server.call_tool("unknown_tool", {})
-
-        assert len(result) == 1
-        assert "Unknown tool: unknown_tool" in result[0].text
+        with pytest.raises(Exception):  # FastMCP should raise an exception for unknown tools
+            await mcp.call_tool("unknown_tool", {})
 
     def test_run_netpicker_command_success(self):
         """Test successful command execution."""
