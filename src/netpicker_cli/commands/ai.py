@@ -148,6 +148,30 @@ def fetch_latest_backup(ip: str) -> str:
 app = typer.Typer(help="AI-powered natural language querying and AI service management")
 
 
+@app.callback(invoke_without_command=True)
+def main_callback(ctx: typer.Context):
+    """
+    Show available AI commands when no subcommand is provided.
+    """
+    if ctx.invoked_subcommand is None:
+        typer.echo("NetPicker AI Commands:")
+        typer.echo("")
+        typer.echo("Available commands:")
+        typer.echo("  query    Query NetPicker using natural language")
+        typer.echo("  status   Check AI service status and configuration")
+        typer.echo("  tools    List all available AI-routable tools")
+        typer.echo("  chat     Interactive AI chat mode for querying NetPicker")
+        typer.echo("")
+        typer.echo("Examples:")
+        typer.echo("  netpicker ai query \"Show me all devices\"")
+        typer.echo("  netpicker ai status")
+        typer.echo("  netpicker ai tools")
+        typer.echo("  netpicker ai chat")
+        typer.echo("")
+        typer.echo("Use 'netpicker ai <command> --help' for more information about a specific command.")
+        raise typer.Exit()
+
+
 @app.command("query")
 def query(
     query: str = typer.Argument(..., help="Natural language query"),

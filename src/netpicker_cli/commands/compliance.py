@@ -6,7 +6,35 @@ from ..utils.config import load_settings
 from ..api.client import ApiClient
 from ..api.errors import ApiError
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+app = typer.Typer(add_completion=False)
+
+
+@app.callback(invoke_without_command=True)
+def main_callback(ctx: typer.Context):
+    """
+    Show available compliance commands when no subcommand is provided.
+    """
+    if ctx.invoked_subcommand is None:
+        typer.echo("NetPicker Compliance Commands:")
+        typer.echo("")
+        typer.echo("Available commands:")
+        typer.echo("  overview        Get compliance overview for the tenant")
+        typer.echo("  report-tenant   Get compliance report for the tenant")
+        typer.echo("  devices         Get policy devices list for the tenant")
+        typer.echo("  export          Export the tenant compliance report")
+        typer.echo("  status          Get compliance status for a device")
+        typer.echo("  failures        Get compliance failures for the tenant")
+        typer.echo("  log             Log compliance for a config id")
+        typer.echo("  report-config   Report compliance for a specific config id")
+        typer.echo("")
+        typer.echo("Examples:")
+        typer.echo("  netpicker compliance overview")
+        typer.echo("  netpicker compliance report-tenant")
+        typer.echo("  netpicker compliance devices")
+        typer.echo("  netpicker compliance status --ip 192.168.1.1")
+        typer.echo("")
+        typer.echo("Use 'netpicker compliance <command> --help' for more information about a specific command.")
+        raise typer.Exit()
 
 
 

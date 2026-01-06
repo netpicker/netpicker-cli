@@ -268,7 +268,7 @@ NetPicker CLI includes AI assistance for natural language network management and
 ### AI Command
 
 ```bash
-netpicker ai query "Show me all Cisco devices"                    # Natural language queries
+netpicker ai query "Show me all devices"                          # Natural language queries
 netpicker ai status                                               # AI service status
 netpicker ai tools                                                # List available AI tools
 netpicker ai chat                                                 # Interactive AI chat mode
@@ -326,7 +326,7 @@ pip install -e ".[mcp]"
 #### AI Assistant Examples
 
 Once configured, you can ask Claude things like:
-- *"Show me all Cisco devices in the production environment"*
+- *"Show me the first 10 devices"*
 - *"Create a backup of router 192.168.1.1"*
 - *"Check if this config complies with our security policy"*
 - *"Execute the network health check automation job"*

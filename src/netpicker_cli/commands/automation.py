@@ -4,7 +4,42 @@ from ..utils.config import load_settings
 from ..api.client import ApiClient
 from ..api.errors import ApiError, NotFound
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+app = typer.Typer(add_completion=False)
+
+
+@app.callback(invoke_without_command=True)
+def main_callback(ctx: typer.Context):
+    """
+    Show available automation commands when no subcommand is provided.
+    """
+    if ctx.invoked_subcommand is None:
+        typer.echo("NetPicker Automation Commands:")
+        typer.echo("")
+        typer.echo("Available commands:")
+        typer.echo("  list-fixtures    List available automation fixtures")
+        typer.echo("  list-jobs        List automation jobs")
+        typer.echo("  store-job        Store an automation job")
+        typer.echo("  store-job-file   Store an automation job from a file")
+        typer.echo("  show-job         Get details of a specific automation job")
+        typer.echo("  delete-job       Delete an automation job")
+        typer.echo("  test-job         Test an automation job")
+        typer.echo("  execute-job      Execute an automation job")
+        typer.echo("  logs             Get job log report")
+        typer.echo("  show-log         Get details of a specific job log entry")
+        typer.echo("  list-queue       List queued jobs")
+        typer.echo("  store-queue      Store a queued job")
+        typer.echo("  show-queue       Get details of a specific queued job")
+        typer.echo("  delete-queue     Delete a queued job")
+        typer.echo("  review-queue     Review a queued job (approve or reject)")
+        typer.echo("")
+        typer.echo("Examples:")
+        typer.echo("  netpicker automation list-jobs")
+        typer.echo("  netpicker automation execute-job --name my-job")
+        typer.echo("  netpicker automation show-job my-job")
+        typer.echo("  netpicker automation list-queue")
+        typer.echo("")
+        typer.echo("Use 'netpicker automation <command> --help' for more information about a specific command.")
+        raise typer.Exit()
 
 
 @app.command("list-fixtures")

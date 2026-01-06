@@ -8,7 +8,36 @@ from ..api.client import ApiClient
 from ..utils.files import atomic_write
 import difflib
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+app = typer.Typer(add_completion=False)
+
+
+@app.callback(invoke_without_command=True)
+def main_callback(ctx: typer.Context):
+    """
+    Show available backup commands when no subcommand is provided.
+    """
+    if ctx.invoked_subcommand is None:
+        typer.echo("NetPicker Backup Commands:")
+        typer.echo("")
+        typer.echo("Available commands:")
+        typer.echo("  diff      Diff two configs for a device")
+        typer.echo("  recent    List the most recent configuration backups across devices")
+        typer.echo("  list      List configuration backups for a single device")
+        typer.echo("  fetch     Fetch a device config blob and save it to disk")
+        typer.echo("  search    Search configs across devices")
+        typer.echo("  commands  Show backup command templates per platform")
+        typer.echo("  upload    Upload a device config snapshot to NetPicker")
+        typer.echo("  history   Show backup history for a device")
+        typer.echo("")
+        typer.echo("Examples:")
+        typer.echo("  netpicker backups list --ip 192.168.1.1")
+        typer.echo("  netpicker backups fetch --ip 192.168.1.1 --id <config-id>")
+        typer.echo("  netpicker backups diff --ip 192.168.1.1")
+        typer.echo("  netpicker backups recent")
+        typer.echo("")
+        typer.echo("Use 'netpicker backups <command> --help' for more information about a specific command.")
+        raise typer.Exit()
+
 
 def _as_items(data):
     if isinstance(data, list):
@@ -16,6 +45,7 @@ def _as_items(data):
     if isinstance(data, dict):
         return data.get("items", [])
     return []
+
 
 @app.command("diff")
 def diff_configs(

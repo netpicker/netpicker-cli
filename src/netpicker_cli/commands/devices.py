@@ -6,7 +6,32 @@ from ..utils.config import load_settings
 from ..api.client import ApiClient
 from ..api.errors import ApiError, NotFound
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+app = typer.Typer(add_completion=False)
+
+
+@app.callback(invoke_without_command=True)
+def main_callback(ctx: typer.Context):
+    """
+    Show available device commands when no subcommand is provided.
+    """
+    if ctx.invoked_subcommand is None:
+        typer.echo("NetPicker Device Commands:")
+        typer.echo("")
+        typer.echo("Available commands:")
+        typer.echo("  list     List devices with optional filtering")
+        typer.echo("  show     Show a single device's details")
+        typer.echo("  create   Create a new device")
+        typer.echo("  delete   Delete a device")
+        typer.echo("")
+        typer.echo("Examples:")
+        typer.echo("  netpicker devices list")
+        typer.echo("  netpicker devices list --tag production")
+        typer.echo("  netpicker devices show 192.168.1.1")
+        typer.echo("  netpicker devices create --ip 192.168.1.1 --name router01 --platform cisco_ios")
+        typer.echo("")
+        typer.echo("Use 'netpicker devices <command> --help' for more information about a specific command.")
+        raise typer.Exit()
+
 
 def _as_items(data):
     if isinstance(data, list):
