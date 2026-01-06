@@ -428,6 +428,78 @@ async def health_check(json_output: bool = False) -> str:
         return f"Health check failed: {result['stderr'].strip()}"
 
 
+@mcp.tool()
+async def compliance_overview(json_output: bool = False) -> str:
+    """Get compliance overview for the tenant.
+
+    Args:
+        json_output: Return JSON output
+
+    Returns:
+        Compliance overview
+    """
+    args = ["compliance", "overview"]
+    if json_output:
+        args.append("--json")
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "No compliance data found"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def compliance_report_tenant(json_output: bool = False) -> str:
+    """Get compliance report for the tenant.
+
+    Args:
+        json_output: Return JSON output
+
+    Returns:
+        Tenant compliance report
+    """
+    args = ["compliance", "report-tenant"]
+    if json_output:
+        args.append("--json")
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "No compliance report data found"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
+@mcp.tool()
+async def compliance_devices(ip: Optional[str] = None, policy: Optional[str] = None, json_output: bool = False) -> str:
+    """Get policy devices list for the tenant.
+
+    Args:
+        ip: Filter by device IP
+        policy: Filter by policy name
+        json_output: Return JSON output
+
+    Returns:
+        Device compliance status
+    """
+    args = ["compliance", "devices"]
+    if ip:
+        args.extend(["--ip", ip])
+    if policy:
+        args.extend(["--policy", policy])
+    if json_output:
+        args.append("--json")
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "No device compliance data found"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
 def main():
     """Main entry point for the MCP server."""
     mcp.run_stdio_async()

@@ -5,10 +5,11 @@ Provides AI-powered natural language querying and AI service management.
 """
 
 import typer
-from typing import Optional
+from typing import Optional, Dict, Any
 import asyncio
 import subprocess
 import os
+import re
 from netpicker_cli.ai import router as ai_router
 from netpicker_cli.mcp.server import mcp
 
@@ -52,6 +53,98 @@ def run_netpicker_command(args):
             "success": False
         }
 
+def extract_parameters(query: str) -> Dict[str, Any]:
+    """
+    Extract parameters from natural language queries.
+
+    Args:
+        query: Natural language query
+
+    Returns:
+        Dictionary of extracted parameters
+    """
+    params = {}
+
+    # Extract limit numbers (e.g., "list 5 devices", "show top 10", "any 2 devices")
+    limit_patterns = [
+        r'\b(\d+)\s+devices?\b',  # "5 devices"
+        r'\bany\s+(\d+)\b',       # "any 2"
+        r'\btop\s+(\d+)\b',       # "top 10"
+        r'\bfirst\s+(\d+)\b',     # "first 3"
+        r'\blast\s+(\d+)\b',      # "last 5"
+        r'\blimit\s+(\d+)\b',     # "limit 2"
+    ]
+
+    for pattern in limit_patterns:
+        match = re.search(pattern, query, re.IGNORECASE)
+        if match:
+            params['limit'] = int(match.group(1))
+            break
+
+    # Extract IP addresses for device-specific queries
+    ip_pattern = r'\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b'
+    match = re.search(ip_pattern, query)
+    if match:
+        params['ip'] = match.group(1)
+
+    # Extract tags (more flexible patterns)
+    tag_patterns = [
+        r'\btag\s+([a-z0-9_-]+)\b',         # "tag foo", "tag test-1"
+        r'\bwith\s+tag\s+([a-z0-9_-]+)\b',  # "with tag foo"
+        r'\bfor\s+tag\s+([a-z0-9_-]+)\b',   # "for tag foo"
+    ]
+
+    for pattern in tag_patterns:
+        match = re.search(pattern, query, re.IGNORECASE)
+        if match:
+            params['tag'] = match.group(1)
+            break
+
+    return params
+
+def fetch_latest_backup(ip: str) -> str:
+    """
+    Fetch the latest backup configuration for a device.
+    
+    This is a two-step process:
+    1. Get the list of backups to find the latest ID
+    2. Fetch the configuration using that ID
+    
+    Args:
+        ip: Device IP address
+        
+    Returns:
+        The configuration content or an error message
+    """
+    try:
+        # Step 1: Get the latest backup ID
+        result = run_netpicker_command(["backups", "list", "--ip", ip, "--json"])
+        if not result["success"]:
+            return f"Error getting backup list: {result['stderr']}"
+        
+        # Parse JSON output to get the latest ID
+        import json
+        try:
+            data = json.loads(result["stdout"])
+            # The response is usually a list of backup entries
+            if isinstance(data, list) and len(data) > 0:
+                latest_id = data[0].get("id")
+                if not latest_id:
+                    return "Could not find backup ID in response"
+                
+                # Step 2: Fetch the configuration using the ID
+                fetch_result = run_netpicker_command(["backups", "fetch", "--ip", ip, "--id", latest_id])
+                if fetch_result["success"]:
+                    return fetch_result["stdout"].strip()
+                else:
+                    return f"Error fetching backup: {fetch_result['stderr']}"
+            else:
+                return "No backups found for this device"
+        except json.JSONDecodeError:
+            return "Could not parse backup list response"
+    except Exception as e:
+        return f"Error fetching latest backup: {str(e)}"
+
 app = typer.Typer(help="AI-powered natural language querying and AI service management")
 
 
@@ -70,9 +163,10 @@ def query(
         # Get available tools (synchronously for now)
         available_tools = [
             "devices_list", "devices_show", "devices_create", "devices_delete",
-            "backups_history", "backups_upload", "backups_download", "backups_diff", "backups_recent",
-            "compliance_policy_list", "compliance_policy_test", "compliance_check",
-            "automation_list", "automation_run", "health_check", "whoami"
+            "backups_history", "backups_list", "backups_upload", "backups_diff",
+            "policy_list", "policy_create", "policy_add_rule", "policy_test_rule",
+            "automation_list_jobs", "automation_execute_job", "health_check",
+            "compliance_overview", "compliance_report_tenant", "compliance_devices"
         ]
 
         if use_ai:
@@ -91,33 +185,65 @@ def query(
 
         response_text = "No response"
         try:
-            # Map tool names to CLI commands
+            # Extract parameters from the query
+            params = extract_parameters(query)
+
+            # Map tool names to CLI commands with parameter handling
             tool_commands = {
                 "devices_list": ["devices", "list"],
                 "devices_show": ["devices", "show"],
                 "devices_create": ["devices", "create"],
                 "devices_delete": ["devices", "delete"],
                 "backups_history": ["backups", "history"],
+                "backups_list": ["backups", "list"],
                 "backups_upload": ["backups", "upload"],
-                "backups_download": ["backups", "download"],
                 "backups_diff": ["backups", "diff"],
-                "backups_recent": ["backups", "recent"],
-                "compliance_policy_list": ["compliance", "policy", "list"],
-                "compliance_policy_test": ["compliance", "policy", "test"],
-                "compliance_check": ["compliance", "check"],
-                "automation_list": ["automation", "list"],
-                "automation_run": ["automation", "run"],
-                "health_check": ["health", "check"],
-                "whoami": ["whoami"]
+                "policy_list": ["policy", "list"],
+                "policy_create": ["policy", "create"],
+                "policy_add_rule": ["policy", "add-rule"],
+                "policy_test_rule": ["policy", "test-rule"],
+                "automation_list_jobs": ["automation", "list-jobs"],
+                "automation_execute_job": ["automation", "execute-job"],
+                "health_check": ["health"],
+                "compliance_overview": ["compliance", "overview"],
+                "compliance_report_tenant": ["compliance", "report-tenant"],
+                "compliance_devices": ["compliance", "devices"]
             }
 
             if tool_name in tool_commands:
-                # Execute the CLI command
-                result = run_netpicker_command(tool_commands[tool_name])
-                if result["success"]:
-                    response_text = result["stdout"].strip() or "Command executed successfully"
+                # Special handling for backup configuration retrieval
+                wants_content = "config" in query.lower() or "text" in query.lower() or "content" in query.lower()
+                
+                if (tool_name in ["backups_list", "backups_history", "backups_diff"] and 
+                    "ip" in params and wants_content):
+                    # User wants the actual configuration content
+                    response_text = fetch_latest_backup(params["ip"])
                 else:
-                    response_text = f"Command failed: {result['stderr'].strip()}"
+                    # Build the command with extracted parameters
+                    cmd = tool_commands[tool_name].copy()
+
+                    # Add parameter handling for specific tools
+                    if tool_name == "devices_list" and "limit" in params:
+                        cmd.extend(["--limit", str(params["limit"])])
+                    if tool_name == "devices_list" and "tag" in params:
+                        cmd.extend(["--tag", params["tag"]])
+                    if tool_name == "devices_show" and "ip" in params:
+                        cmd.append(params["ip"])
+                    if tool_name == "backups_history" and "ip" in params:
+                        cmd.append(params["ip"])
+                    if tool_name == "backups_list" and "ip" in params:
+                        cmd.extend(["--ip", params["ip"]])
+                    if tool_name == "backups_diff" and "ip" in params:
+                        cmd.extend(["--ip", params["ip"]])
+                    if tool_name == "compliance_devices" and "ip" in params:
+                        cmd.extend(["--ip", params["ip"]])
+
+                    # Execute the CLI command
+                    result = run_netpicker_command(cmd)
+                    if result["success"]:
+                        response_text = result["stdout"].strip() or "Command executed successfully"
+                    else:
+                        response_text = f"Command failed: {result['stderr'].strip()}"
             else:
                 response_text = f"Unknown tool: {tool_name}"
         except Exception as e:
