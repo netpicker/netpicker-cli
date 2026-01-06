@@ -1,5 +1,5 @@
 import typer
-from .commands import auth, backups, devices, compliance, compliance_policy, automation
+from .commands import auth, backups, devices, compliance, compliance_policy, automation, ai
 from .commands.health import do_health
 from .commands.whoami import whoami
 
@@ -17,3 +17,4 @@ app.add_typer(devices.app, name="devices", help="List and manage devices")
 app.add_typer(compliance.app, name="compliance", help="Compliance checks and reports")
 app.add_typer(compliance_policy.app, name="policy", help="Compliance policy management")
 app.add_typer(automation.app, name="automation", help="Automation commands")
+app.add_typer(ai.app, name="ai", help="AI-powered natural language querying")
