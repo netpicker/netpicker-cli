@@ -8,70 +8,12 @@ A comprehensive command-line interface for NetPicker API — empowering network 
 - **Backup Operations**: Upload, fetch, search, and compare device configurations
 - **Compliance Management**: Create policies, add rules, run compliance checks, and generate reports
 - **Automation**: Execute jobs, manage queues, store and test automation scripts
-- **MCP Server**: AI assistant integration for natural language network management
+- **AI Assistance**: Natural language querying and AI-powered network management
 - **Health Monitoring**: System status checks and user authentication verification
-
-## 🤖 Model Context Protocol (MCP) Server
-
-NetPicker CLI includes a built-in MCP server that enables AI assistants like Claude to interact with your network infrastructure through natural language conversations.
-
-### Quick MCP Setup
-
-```bash
-# Install with MCP support
-pip install -e ".[mcp]"
-
-# Configure for Claude Desktop
-# Add to your claude_desktop_config.json:
-{
-  "mcpServers": {
-    "netpicker": {
-      "command": "netpicker-mcp",
-      "env": {
-        "NETPICKER_BASE_URL": "https://your-netpicker-instance.com",
-        "NETPICKER_TENANT": "your-tenant",
-        "NETPICKER_TOKEN": "your-api-token"
-      }
-    }
-  }
-}
-```
-
-### MCP Tools Available
-
-**Device Management:**
-- `devices_list` - List network devices with filtering options
-- `devices_show` - Display detailed device information
-- `devices_create` - Create new network devices
-- `devices_delete` - Remove devices from inventory
-
-**Backup Management:**
-- `backups_upload` - Upload device configurations
-- `backups_history` - View backup history for devices
-- `backups_diff` - Compare configuration versions
-
-**Compliance & Policy:**
-- `policy_list` - List compliance policies
-- `policy_create` - Create new compliance policies
-- `policy_add_rule` - Add rules to policies
-- `policy_test_rule` - Test rules against configurations
-
-**Automation:**
-- `automation_list_jobs` - List available automation jobs
-- `automation_execute_job` - Execute automation jobs
-
-### AI Assistant Examples
-
-Once configured, you can ask Claude things like:
-- *"Show me all Cisco devices in the production environment"*
-- *"Create a backup of router 192.168.1.1"*
-- *"Check if this config complies with our security policy"*
-- *"Execute the network health check automation job"*
-- *"List all devices that failed compliance in the last 24 hours"*
 
 ---
 
-## 🚀 Installation
+## 🚀 Installation & Setup
 
 ### Production Install
 
@@ -94,9 +36,9 @@ pip install -e ".[dev,mcp]"
 > export PYTHON_KEYRING_BACKEND=keyrings.alt.file.PlaintextKeyring
 > ```
 
-## 🔐 Configuration & Authentication
+### Configuration & Authentication
 
-### Recommended: Interactive Login
+#### Recommended: Interactive Login
 
 ```bash
 netpicker auth login \
@@ -107,7 +49,7 @@ netpicker auth login \
 
 This securely stores your token in the OS keyring and saves URL/tenant to `~/.config/netpicker/config.json`.
 
-### Alternative: Environment Variables
+#### Alternative: Environment Variables
 
 **Unix/macOS:**
 ```bash
@@ -123,7 +65,7 @@ $env:NETPICKER_TENANT   = "YOUR_TENANT"
 $env:NETPICKER_TOKEN    = "YOUR_API_TOKEN"
 ```
 
-### Optional Settings
+#### Optional Settings
 
 ```bash
 export NETPICKER_TIMEOUT=30          # Request timeout in seconds
@@ -132,16 +74,20 @@ export NETPICKER_INSECURE=1          # Skip TLS verification (use with caution)
 
 > Environment variables override config file values when set.
 
-## 📋 Command Reference
-
-### Core Commands
+### Quick Health Check
 
 ```bash
-netpicker health                    # Check API connectivity and system health
-netpicker whoami [--json]          # Display current user and tenant information
+netpicker health
+netpicker whoami --json | jq .
 ```
 
-### Device Management
+---
+
+## 📋 Device Management
+
+NetPicker CLI provides comprehensive device inventory management capabilities.
+
+### Commands
 
 ```bash
 netpicker devices list [--tag TAG] [--json] [--limit N] [--offset M] [--all]
@@ -150,33 +96,62 @@ netpicker devices create --ip <IP> [--hostname HOSTNAME] [--platform PLATFORM] [
 netpicker devices delete --ip <IP/FQDN> [--force]
 ```
 
-### Backup Operations
+### Examples
+
+```bash
+# List first 10 devices
+netpicker devices list --limit 10
+
+# Show device details in JSON
+netpicker devices show --ip 192.168.1.1 --json
+
+# Create a new device
+netpicker devices create --ip 10.0.0.1 --hostname router01 --platform cisco_ios --tags "production,core"
+
+# List devices by tag
+netpicker devices list --tag production
+```
+
+---
+
+## 💾 Backup Operations
+
+Manage device configuration backups, compare versions, and search through backup history.
+
+### Commands
 
 ```bash
 netpicker backups recent [--limit N] [--json]                    # Recent backups across all devices
-netpicker backups list --ip <IP/FQDN> [--json]                   # Backups for specific device
-netpicker backups fetch --ip <IP/FQDN> --id <CONFIG_ID> [-o DIR] # Download specific config
-netpicker backups search [--q TEXT] [--device IP] [--since TS] [--limit N] [--json]
-netpicker backups diff [--ip <IP/FQDN>] [--id-a ID] [--id-b ID] [--context N] [--json]
-netpicker backups commands [--platform <name>] [--json]          # Show backup commands for platform
-netpicker backups upload --ip <IP/FQDN> --config-file <FILE>     # Upload config backup
 netpicker backups history --ip <IP/FQDN> [--limit N] [--json]    # Backup history for device
+netpicker backups upload --ip <IP/FQDN> --config-file <FILE>     # Upload config backup
+netpicker backups diff [--ip <IP/FQDN>] [--id-a ID] [--id-b ID] [--context N] [--json]
+netpicker backups search [--q TEXT] [--device IP] [--since TS] [--limit N] [--json]
+netpicker backups commands [--platform <name>] [--json]          # Show backup commands for platform
 ```
 
-### Compliance Management
+### Examples
 
 ```bash
-netpicker compliance overview [--json]                           # Compliance overview
-netpicker compliance report-tenant [--json]                      # Tenant-wide compliance report
-netpicker compliance devices [--ip IP] [--policy POLICY] [--json] # Device compliance status
-netpicker compliance export [--format FORMAT] [-o FILE]          # Export compliance data
-netpicker compliance status [--policy POLICY] [--json]           # Compliance status summary
-netpicker compliance failures [--limit N] [--json]               # List compliance failures
-netpicker compliance log [--policy POLICY] [--limit N] [--json]  # Compliance check logs
-netpicker compliance report-config --config-id <ID> [--json]      # Config compliance report
+# View recent backups
+netpicker backups recent --limit 20
+
+# Compare latest two configs for a device
+netpicker backups diff --ip 192.168.1.1
+
+# Search for configs containing specific text
+netpicker backups search --q "interface GigabitEthernet" --device 192.168.1.1
+
+# Upload a configuration backup
+netpicker backups upload --ip 192.168.1.1 --config-file router-config.txt
 ```
 
-### Policy Management
+---
+
+## 📜 Compliance Policy Management
+
+Create and manage compliance policies with customizable rules for network security and configuration standards.
+
+### Commands
 
 ```bash
 netpicker policy list [--json]                                    # List compliance policies
@@ -190,7 +165,65 @@ netpicker policy test-rule --rule-config <JSON> --config-id <ID>  # Test rule ag
 netpicker policy execute-rules --policy <NAME> --config-id <ID>   # Execute all policy rules
 ```
 
-### Automation
+### Examples
+
+```bash
+# List all policies
+netpicker policy list
+
+# Create a security policy
+netpicker policy create --name security-policy --description "Network security compliance"
+
+# Add a compliance rule
+netpicker policy add-rule --name security-policy --rule-name rule_no_telnet \
+  --rule-config '{"type": "regex", "pattern": "transport input telnet", "negate": true}'
+
+# Test a rule against a configuration
+netpicker policy test-rule --rule-config '{"type": "regex", "pattern": "service password-encryption"}' --config-id 12345
+```
+
+---
+
+## ✅ Compliance Testing
+
+Run compliance checks against device configurations and generate detailed reports.
+
+### Commands
+
+```bash
+netpicker compliance overview [--json]                           # Compliance overview
+netpicker compliance report-tenant [--json]                      # Tenant-wide compliance report
+netpicker compliance devices [--ip IP] [--policy POLICY] [--json] # Device compliance status
+netpicker compliance export [--format FORMAT] [-o FILE]          # Export compliance data
+netpicker compliance status [--policy POLICY] [--json]           # Compliance status summary
+netpicker compliance failures [--limit N] [--json]               # List compliance failures
+netpicker compliance log [--policy POLICY] [--limit N] [--json]  # Compliance check logs
+netpicker compliance report-config --config-id <ID> [--json]      # Config compliance report
+```
+
+### Examples
+
+```bash
+# Check compliance overview
+netpicker compliance overview
+
+# Generate tenant compliance report
+netpicker compliance report-tenant --json > compliance_report.json
+
+# Check specific device compliance
+netpicker compliance devices --ip 192.168.1.1
+
+# View compliance failures
+netpicker compliance failures --limit 20
+```
+
+---
+
+## ⚙️ Automation
+
+Execute automation jobs, manage job queues, and monitor automation execution.
+
+### Commands
 
 ```bash
 netpicker automation list-fixtures [--json]                       # List available fixtures
@@ -210,71 +243,8 @@ netpicker automation delete-queue --name <NAME> [--force]          # Delete job 
 netpicker automation review-queue --name <NAME> [--json]           # Review queue status
 ```
 
-### Authentication
+### Examples
 
-```bash
-netpicker auth login [--base-url URL] [--tenant TENANT] [--token TOKEN]
-netpicker auth logout
-```
-
-## 💡 Usage Examples
-
-### Quick Health Check
-```bash
-netpicker health
-netpicker whoami --json | jq .
-```
-
-### Device Operations
-```bash
-# List first 10 devices
-netpicker devices list --limit 10
-
-# Show device details in JSON
-netpicker devices show --ip 192.168.1.1 --json
-
-# Create a new device
-netpicker devices create --ip 10.0.0.1 --hostname router01 --platform cisco_ios --tags "production,core"
-```
-
-### Backup Management
-```bash
-# View recent backups
-netpicker backups recent --limit 20
-
-# Compare latest two configs for a device
-netpicker backups diff --ip 192.168.1.1
-
-# Search for configs containing specific text
-netpicker backups search --q "interface GigabitEthernet" --device 192.168.1.1
-```
-
-### Compliance Workflows
-```bash
-# Check compliance overview
-netpicker compliance overview
-
-# Generate tenant compliance report
-netpicker compliance report-tenant --json > compliance_report.json
-
-# Check specific device compliance
-netpicker compliance devices --ip 192.168.1.1
-```
-
-### Policy Management
-```bash
-# List all policies
-netpicker policy list
-
-# Create a security policy
-netpicker policy create --name security-policy --description "Network security compliance"
-
-# Add a compliance rule
-netpicker policy add-rule --name security-policy --rule-name no-telnet \
-  --rule-config '{"type": "regex", "pattern": "transport input telnet", "negate": true}'
-```
-
-### Automation Jobs
 ```bash
 # List available jobs
 netpicker automation list-jobs
@@ -284,7 +254,85 @@ netpicker automation execute-job --name network-health-check
 
 # View automation logs
 netpicker automation logs --limit 10
+
+# Store a new automation job
+netpicker automation store-job-file --name my-job --file job_config.json
 ```
+
+---
+
+## 🤖 AI-Powered Features
+
+NetPicker CLI includes AI assistance for natural language network management and intelligent querying.
+
+### AI Command
+
+```bash
+netpicker ai query "Show me all Cisco devices"                    # Natural language queries
+netpicker ai status                                               # AI service status
+netpicker ai tools                                                # List available AI tools
+netpicker ai chat                                                 # Interactive AI chat mode
+```
+
+### Model Context Protocol (MCP) Server
+
+NetPicker CLI includes a built-in MCP server that enables AI assistants like Claude to interact with your network infrastructure through natural language conversations.
+
+#### Quick MCP Setup
+
+```bash
+# Install with MCP support
+pip install -e ".[mcp]"
+
+# Configure for Claude Desktop
+# Add to your claude_desktop_config.json:
+{
+  "mcpServers": {
+    "netpicker": {
+      "command": "netpicker-mcp",
+      "env": {
+        "NETPICKER_BASE_URL": "https://your-netpicker-instance.com",
+        "NETPICKER_TENANT": "your-tenant",
+        "NETPICKER_TOKEN": "your-api-token"
+      }
+    }
+  }
+}
+```
+
+#### MCP Tools Available
+
+**Device Management:**
+- `devices_list` - List network devices with filtering options
+- `devices_show` - Display detailed device information
+- `devices_create` - Create new network devices
+- `devices_delete` - Remove devices from inventory
+
+**Backup Management:**
+- `backups_upload` - Upload device configurations
+- `backups_history` - View backup history for devices
+- `backups_diff` - Compare configuration versions
+
+**Compliance & Policy:**
+- `policy_list` - List compliance policies
+- `policy_create` - Create new compliance policies
+- `policy_add_rule` - Add rules to policies
+- `policy_test_rule` - Test rules against configurations
+
+**Automation:**
+- `automation_list_jobs` - List available automation jobs
+- `automation_execute_job` - Execute automation jobs
+
+#### AI Assistant Examples
+
+Once configured, you can ask Claude things like:
+- *"Show me all Cisco devices in the production environment"*
+- *"Create a backup of router 192.168.1.1"*
+- *"Check if this config complies with our security policy"*
+- *"Execute the network health check automation job"*
+- *"List all devices that failed compliance in the last 24 hours"*
+
+---
 
 ## 🐛 Troubleshooting
 
@@ -310,6 +358,8 @@ netpicker automation logs --limit 10
 - Install alternative keyring: `pip install keyrings.alt`
 - Set: `export PYTHON_KEYRING_BACKEND=keyrings.alt.file.PlaintextKeyring`
 
+---
+
 ## 🤝 Contributing
 
 1. Fork the repository
@@ -331,6 +381,8 @@ ruff check .  # Lint code
 black .      # Format code
 ```
 
+---
+
 ## 📄 License
 
 MIT License - see LICENSE file for details.
@@ -340,166 +392,3 @@ MIT License - see LICENSE file for details.
 - Documentation: [NetPicker Docs](https://docs.netpicker.io)
 - Issues: [GitHub Issues](https://github.com/netpicker/netpicker-cli/issues)
 - Support: support@netpicker.io
-
-## Model Context Protocol (MCP) Server
-
-NetPicker CLI includes an MCP server that enables AI assistants like Claude to interact with your network infrastructure through natural language.
-
-### Install with MCP support
-
-```bash
-pip install -e ".[mcp]"
-```
-
-### Configure for Claude Desktop
-
-Add to your `claude_desktop_config.json`:
-
-```json
-{
-  "mcpServers": {
-    "netpicker": {
-      "command": "netpicker-mcp",
-      "env": {
-        "NETPICKER_BASE_URL": "https://your-netpicker-instance.com",
-        "NETPICKER_TENANT": "your-tenant",
-        "NETPICKER_TOKEN": "your-api-token"
-      }
-    }
-  }
-}
-```
-
-### Available MCP Tools
-
-The MCP server exposes these tools for AI assistants:
-
-**Device Management:**
-- `devices_list` - List network devices with filtering
-- `devices_show` - Show device details
-- `devices_create` - Create new devices
-- `devices_delete` - Delete devices
-
-**Backup Management:**
-- `backups_upload` - Upload configurations
-- `backups_history` - View backup history
-- `backups_diff` - Compare configurations
-
-**Compliance:**
-- `policy_list` - List compliance policies
-- `policy_create` - Create policies
-- `policy_add_rule` - Add compliance rules
-- `policy_test_rule` - Test rules against configs
-
-**Automation:**
-- `automation_list_jobs` - List automation jobs
-- `automation_execute_job` - Execute jobs
-
-### Example AI Interactions
-
-Once configured, you can ask Claude:
-- *"Show me all Cisco devices in production"*
-- *"Create a backup of router 192.168.1.1"*
-- *"Check if this config complies with our security policy"*
-- *"Execute the network health check automation"*
-
----
-
-## What it does (current MVP)
-
-- **Health & identity**
-  - `netpicker health` — quick API status check
-  - `netpicker whoami` — show authenticated user + tenant info
-
-- **Devices**
-  - `netpicker devices list [--tag TAG] [--json]`
-  - `netpicker devices show --ip <IP/FQDN> [--json]`
-  - `netpicker devices delete --ip <IP/FQDN> [--force]`
-
-- **Backups**
-  - `netpicker backups recent [--limit N] [--json]`
-  - `netpicker backups list --ip <IP/FQDN> [--json]`
-  - `netpicker backups fetch --ip <IP/FQDN> --id <CONFIG_ID> [-o DIR]`
-  - `netpicker backups commands [--platform <name>] [--json]`
-  - `netpicker backups search [--q TEXT] [--device IP] [--since TS] [--limit N] [--json]`
-    - Falls back to client-side search when the server endpoint isn’t available
-  - `netpicker backups diff [--ip <IP/FQDN>] [--id-a ID] [--id-b ID] [--context N] [--json]`
-    - With `--ip` only: diffs the device’s **latest two** configs
-    - With `--id-a/--id-b`: diffs those specific configs
-
-> Output defaults to a pretty table. Add `--json` anywhere for machine-readable output.
-
----
-
-## Install (dev)
-
-```bash
-python -m venv venv && source venv/bin/activate
-pip install -e .
-
-# If keyring backend complains on Linux:
-pip install keyrings.alt
-export PYTHON_KEYRING_BACKEND=keyrings.alt.file.PlaintextKeyring
-```
-
-Here’s a **drop-in README section** you can paste in to cover install + configuration/auth:
-
-## Configure & authenticate
-
-You can set credentials either via an interactive login (recommended) or environment variables.
-
-### Option A — Recommended (stores token in OS keyring)
-
-```bash
-netpicker auth login \
-  --base-url https://YOUR-NETPICKER-URL \
-  --tenant YOUR_TENANT \
-  --token YOUR_API_TOKEN
-```
-
-* URL & tenant are saved to `~/.config/netpicker/config.json` (no secrets).
-* The token is stored in your OS keyring (or plaintext keyring if you used `keyrings.alt`).
-
-### Option B — Environment variables (useful for CI)
-
-**Unix/macOS (bash/zsh):**
-
-```bash
-export NETPICKER_BASE_URL="https://YOUR-NETPICKER-URL"
-export NETPICKER_TENANT="YOUR_TENANT"
-export NETPICKER_TOKEN="YOUR_API_TOKEN"
-```
-
-**Windows PowerShell:**
-
-```powershell
-$env:NETPICKER_BASE_URL = "https://YOUR-NETPICKER-URL"
-$env:NETPICKER_TENANT   = "YOUR_TENANT"
-$env:NETPICKER_TOKEN    = "YOUR_API_TOKEN"
-```
-
-> Env vars (if set) **override** values from the config/keyring.
-
-**TLS / timeouts (optional):**
-
-```bash
-export NETPICKER_TIMEOUT=30          # request timeout in seconds
-export NETPICKER_INSECURE=1          # skip TLS verification (or use NETPICKER_VERIFY=0)
-```
-
-## Quick check
-
-```bash
-netpicker whoami --json | jq .
-netpicker health
-netpicker devices list --limit 5
-```
-
-## Common gotchas
-
-* **“No token found”** → Run `netpicker auth login` or set `NETPICKER_TOKEN`.
-* **403 Forbidden** → Tenant mismatch or token lacks `access:api` scope.
-* **Seeing too few devices** → The API paginates. Use:
-
-  * `netpicker devices list --all` to walk pages, or
-  * `netpicker devices list --limit N --offset M` for manual paging.
