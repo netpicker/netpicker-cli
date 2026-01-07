@@ -70,9 +70,35 @@ $env:NETPICKER_TOKEN    = "YOUR_API_TOKEN"
 ```bash
 export NETPICKER_TIMEOUT=30          # Request timeout in seconds
 export NETPICKER_INSECURE=1          # Skip TLS verification (use with caution)
+export NETPICKER_VERBOSE=1           # Enable verbose debug logging
+export NETPICKER_QUIET=1             # Suppress informational output
 ```
 
 > Environment variables override config file values when set.
+
+### Logging & Output Control
+
+NetPicker CLI provides flexible logging and output control:
+
+```bash
+# Normal output (default)
+netpicker devices list
+
+# Verbose mode - shows debug information and API calls
+netpicker --verbose devices list
+
+# Quiet mode - suppresses informational messages, shows only errors
+netpicker --quiet devices list
+
+# Environment variables for persistent settings
+export NETPICKER_VERBOSE=1    # Always enable verbose mode
+export NETPICKER_QUIET=1      # Always enable quiet mode
+```
+
+**Logging Levels:**
+- **Normal**: Clean CLI output without log prefixes
+- **Verbose**: Detailed debug information including API calls, response times, and full stack traces
+- **Quiet**: Only error and critical messages are displayed
 
 ### Quick Health Check
 
@@ -90,7 +116,7 @@ NetPicker CLI provides comprehensive device inventory management capabilities.
 ### Commands
 
 ```bash
-netpicker devices list [--tag TAG] [--json] [--limit N] [--offset M] [--all]
+netpicker devices list [--tag TAG] [--json] [--limit N] [--offset M] [--all] [--parallel P]
 netpicker devices show --ip <IP/FQDN> [--json]
 netpicker devices create --ip <IP> [--hostname HOSTNAME] [--platform PLATFORM] [--tags TAGS]
 netpicker devices delete --ip <IP/FQDN> [--force]
@@ -110,6 +136,9 @@ netpicker devices create --ip 10.0.0.1 --hostname router01 --platform cisco_ios 
 
 # List devices by tag
 netpicker devices list --tag production
+
+# List all devices with parallel fetching (faster for large datasets)
+netpicker devices list --all --parallel 5
 ```
 
 ---
@@ -122,6 +151,7 @@ Manage device configuration backups, compare versions, and search through backup
 
 ```bash
 netpicker backups recent [--limit N] [--json]                    # Recent backups across all devices
+netpicker backups list --ip <IP/FQDN> [--page N] [--size N] [--all] [--parallel P] [--json]  # List backups for device
 netpicker backups history --ip <IP/FQDN> [--limit N] [--json]    # Backup history for device
 netpicker backups upload --ip <IP/FQDN> --config-file <FILE>     # Upload config backup
 netpicker backups diff [--ip <IP/FQDN>] [--id-a ID] [--id-b ID] [--context N] [--json]

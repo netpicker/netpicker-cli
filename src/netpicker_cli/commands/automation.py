@@ -1,14 +1,16 @@
 import json
 import typer
+from typing import Optional
 from ..utils.config import load_settings
 from ..api.client import ApiClient
 from ..api.errors import ApiError, NotFound
+from ..utils.output import OutputFormatter, OutputFormat
 
 app = typer.Typer(add_completion=False)
 
 
 @app.callback(invoke_without_command=True)
-def main_callback(ctx: typer.Context):
+def main_callback(ctx: typer.Context) -> None:
     """
     Show available automation commands when no subcommand is provided.
     """
@@ -43,7 +45,11 @@ def main_callback(ctx: typer.Context):
 
 
 @app.command("list-fixtures")
-def list_fixtures(json_out: bool = typer.Option(False, "--json", "--json-out")):
+def list_fixtures(
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
+):
     """
     List available automation fixtures.
 
@@ -67,10 +73,17 @@ def list_fixtures(json_out: bool = typer.Option(False, "--json", "--json-out")):
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+
+    # When a structured format is requested, use OutputFormatter
+    if format != "table" or output_file:
+        fixtures = data if isinstance(data, list) else []
+        rows = [{"fixture": f} for f in sorted(fixtures)]
+        headers = ["fixture"]
+        OutputFormatter(format=format, output_file=output_file).output(rows, headers=headers)
         return
 
-    # Display fixtures as a list
+    # Default human-readable output
     fixtures = data if isinstance(data, list) else []
     if not fixtures:
         typer.echo("No fixtures available.")
@@ -84,7 +97,9 @@ def list_fixtures(json_out: bool = typer.Option(False, "--json", "--json-out")):
 @app.command("list-jobs")
 def list_jobs(
     pattern: str = typer.Option(None, "--pattern", help="Filter jobs by name pattern"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     List automation jobs.
@@ -113,10 +128,25 @@ def list_jobs(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+
+    # Structured formats via OutputFormatter
+    if format != "table" or output_file:
+        jobs = data if isinstance(data, list) else []
+        rows = [
+            {
+                "name": job.get("name", ""),
+                "platforms": ", ".join(job.get("platforms", []) or []),
+                "variables": ", ".join(job.get("variables", []) or []),
+                "simple": "Yes" if job.get("is_simple") else "No",
+            }
+            for job in jobs
+        ]
+        headers = ["name", "platforms", "variables", "simple"]
+        OutputFormatter(format=format, output_file=output_file).output(rows, headers=headers)
         return
 
-    # Display jobs in a table format
+    # Default human-readable output
     jobs = data if isinstance(data, list) else []
     if not jobs:
         typer.echo("No jobs found.")
@@ -141,7 +171,9 @@ def list_jobs(
 def store_job(
     name: str = typer.Option(..., "--name", help="Job name"),
     sources: str = typer.Option(..., "--sources", help="Source files as 'filename:content' pairs, separated by semicolons"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Store an automation job.
@@ -188,7 +220,10 @@ def store_job(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+
+    if format != "table" or output_file:
+        OutputFormatter(format=format, output_file=output_file).output(data)
     else:
         typer.echo(f"✓ Job '{data.get('name', name)}' stored successfully")
         sources_count = len(data.get("sources", {}))
@@ -200,7 +235,9 @@ def store_job_file(
     name: str = typer.Option(..., "--name", help="Job name"),
     file_path: str = typer.Option(..., "--file", help="Path to source file"),
     file_name: str = typer.Option(None, "--filename", help="Filename to use in sources (defaults to basename)"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Store an automation job from a file.
@@ -248,7 +285,10 @@ def store_job_file(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+
+    if format != "table" or output_file:
+        OutputFormatter(format=format, output_file=output_file).output(data)
     else:
         typer.echo(f"✓ Job '{data.get('name', name)}' stored successfully")
         typer.echo(f"  File: {file_name}")
@@ -257,7 +297,9 @@ def store_job_file(
 @app.command("show-job")
 def show_job(
     name: str = typer.Argument(..., help="Job name"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Get details of a specific automation job.
@@ -281,7 +323,10 @@ def show_job(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    if format != "table" or output_file:
+        # For structured formats, output the raw response
+        OutputFormatter(format=format, output_file=output_file).output(data)
         return
 
     # Display job information
@@ -338,7 +383,9 @@ def show_job(
 @app.command("delete-job")
 def delete_job(
     name: str = typer.Argument(..., help="Job name to delete"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Delete an automation job.
@@ -377,10 +424,11 @@ def delete_job(
         raise typer.Exit(code=1)
 
     if json_out:
-        if isinstance(data, str):
-            typer.echo(data)
-        else:
-            typer.echo(json.dumps(data, indent=2))
+        format = "json"
+
+    if format != "table" or output_file:
+        payload = data if not isinstance(data, str) else {"message": data}
+        OutputFormatter(format=format, output_file=output_file).output(payload)
     else:
         if isinstance(data, str):
             typer.echo(f"✓ {data}")
@@ -395,7 +443,9 @@ def test_job(
     variables: str = typer.Option(None, help="Variables as 'key:value' pairs, separated by semicolons"),
     tags: str = typer.Option(None, help="Tags as comma-separated list"),
     ipaddress: str = typer.Option(None, help="Target device IP address"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Test an automation job.
@@ -462,7 +512,9 @@ def test_job(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    if format != "table" or output_file:
+        OutputFormatter(format=format, output_file=output_file).output(data)
         return
 
     # Display test results
@@ -491,7 +543,9 @@ def execute_job(
     variables: str = typer.Option(None, help="Variables as 'key:value' pairs, separated by semicolons"),
     tags: str = typer.Option(None, help="Tags as comma-separated list"),
     devices: str = typer.Option(None, help="Devices as comma-separated list"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Execute an automation job.
@@ -564,10 +618,10 @@ def execute_job(
         raise typer.Exit(code=1)
 
     if json_out:
-        if isinstance(data, str):
-            typer.echo(data)
-        else:
-            typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    if format != "table" or output_file:
+        payload = data if not isinstance(data, str) else {"message": data}
+        OutputFormatter(format=format, output_file=output_file).output(payload)
     else:
         if isinstance(data, str):
             typer.echo(f"✓ {data}")
@@ -586,7 +640,9 @@ def logs(
     ordering: str = typer.Option(None, "--ordering", help="Ordering fields as comma-separated list"),
     page: int = typer.Option(1, "--page", help="Page number (default: 1)"),
     size: int = typer.Option(50, "--size", help="Page size (default: 50, max: 1000)"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Get job log report.
@@ -667,10 +723,26 @@ def logs(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    if format != "table" or output_file:
+        items = data.get("items", []) if isinstance(data, dict) else []
+        rows = [
+            {
+                "id": it.get("id", ""),
+                "job": it.get("job_name", ""),
+                "ip": it.get("ipaddress", ""),
+                "status": it.get("status", ""),
+                "exec_at": it.get("exec_at", ""),
+                "created": it.get("created", ""),
+                "exec_ns": it.get("exec_ns", 0),
+            }
+            for it in items
+        ]
+        headers = ["id", "job", "ip", "status", "exec_at", "created", "exec_ns"]
+        OutputFormatter(format=format, output_file=output_file).output(rows, headers=headers)
         return
 
-    # Display logs in a table format
+    # Default human-readable output
     items = data.get("items", [])
     total = data.get("total", 0)
     page_num = data.get("page", 1)
@@ -725,7 +797,9 @@ def logs(
 @app.command("show-log")
 def show_log(
     log_id: str = typer.Argument(..., help="Log entry ID to retrieve"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Get details of a specific job log entry.
@@ -750,7 +824,9 @@ def show_log(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    if format != "table" or output_file:
+        OutputFormatter(format=format, output_file=output_file).output(data)
         return
 
     # Display log details
@@ -798,7 +874,9 @@ def list_queue(
     ordering: str = typer.Option(None, "--ordering", help="Ordering fields as comma-separated list"),
     page: int = typer.Option(1, "--page", help="Page number (default: 1)"),
     size: int = typer.Option(50, "--size", help="Page size (default: 50, max: 1000)"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     List queued jobs.
@@ -861,10 +939,27 @@ def list_queue(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    if format != "table" or output_file:
+        items = data.get("items", []) if isinstance(data, dict) else []
+        rows = [
+            {
+                "id": it.get("id", ""),
+                "job": it.get("job_name", ""),
+                "branch": it.get("branch", ""),
+                "submitter": it.get("submitter", ""),
+                "submitted": it.get("submitted", ""),
+                "status": it.get("status", ""),
+                "tags": ", ".join(it.get("tags", []) or []),
+                "devices": ", ".join(it.get("devices", []) or []),
+            }
+            for it in items
+        ]
+        headers = ["id", "job", "branch", "submitter", "submitted", "status", "tags", "devices"]
+        OutputFormatter(format=format, output_file=output_file).output(rows, headers=headers)
         return
 
-    # Display queued jobs in a table format
+    # Default human-readable output
     items = data.get("items", [])
     total = data.get("total", 0)
     page_num = data.get("page", 1)
@@ -936,7 +1031,9 @@ def store_queue(
     execron_timezone: str = typer.Option("UTC", "--execron-timezone", help="Cron timezone (default: UTC)"),
     expires: str = typer.Option(None, help="Expiration date-time (ISO format)"),
     force: bool = typer.Option(False, "--force", "-f", help="Force operation"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Store a queued job.
@@ -1035,7 +1132,9 @@ def store_queue(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    if format != "table" or output_file:
+        OutputFormatter(format=format, output_file=output_file).output(data)
     else:
         typer.echo("✓ Job queued successfully")
         typer.echo(f"Queue ID: {data.get('id', '')}")
@@ -1047,7 +1146,9 @@ def store_queue(
 @app.command("show-queue")
 def show_queue(
     queue_id: str = typer.Argument(..., help="Queue entry ID to retrieve"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Get details of a specific queued job.
@@ -1072,7 +1173,9 @@ def show_queue(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    if format != "table" or output_file:
+        OutputFormatter(format=format, output_file=output_file).output(data)
         return
 
     # Display queued job details
@@ -1132,7 +1235,9 @@ def show_queue(
 @app.command("delete-queue")
 def delete_queue(
     queue_id: str = typer.Argument(..., help="Queue entry ID to delete"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Delete a queued job.
@@ -1171,10 +1276,10 @@ def delete_queue(
         raise typer.Exit(code=1)
 
     if json_out:
-        if isinstance(data, str):
-            typer.echo(data)
-        else:
-            typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    if format != "table" or output_file:
+        payload = data if not isinstance(data, str) else {"message": data}
+        OutputFormatter(format=format, output_file=output_file).output(payload)
     else:
         if isinstance(data, str):
             typer.echo(f"✓ {data}")
@@ -1186,7 +1291,9 @@ def delete_queue(
 def review_queue(
     queue_id: str = typer.Argument(..., help="Queue entry ID to review"),
     approved: str = typer.Option(..., "--approved", help="Whether to approve ('true') or reject ('false') the queued job"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Review a queued job (approve or reject).
@@ -1220,7 +1327,9 @@ def review_queue(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    if format != "table" or output_file:
+        OutputFormatter(format=format, output_file=output_file).output(data)
     else:
         action = "approved" if approved_bool else "rejected"
         typer.echo(f"✓ Queued job {action} successfully")

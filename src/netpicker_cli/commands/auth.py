@@ -20,7 +20,7 @@ def login(
     base_url: str = typer.Option(..., "--base-url", help="API base URL (e.g., https://dev.netpicker.io)"),
     tenant: str = typer.Option(..., "--tenant", help="Tenant name (e.g., default)"),
     token: Optional[str] = typer.Option(None, "--token", help="Bearer token"),
-):
+) -> None:
     """
     Save credentials to the OS keyring and remember base_url/tenant for this CLI.
     """
@@ -43,7 +43,7 @@ def login(
 def logout(
     base_url: str = typer.Option(..., "--base-url", help="API base URL used when logging in"),
     tenant: str = typer.Option(..., "--tenant", help="Tenant used when logging in"),
-):
+) -> None:
     """
     Remove the saved token from keyring for the given base_url + tenant.
     """

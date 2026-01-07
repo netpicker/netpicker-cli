@@ -2,8 +2,11 @@ import base64
 import json
 import datetime
 import typer
+from typing import Optional
 
 from ..utils.config import load_settings
+from ..utils.logging import output_message
+from ..utils.output import OutputFormatter, OutputFormat
 
 def _decode_jwt_unverified(token: str) -> dict:
     parts = token.split(".")
@@ -16,7 +19,11 @@ def _decode_jwt_unverified(token: str) -> dict:
     except Exception:
         return {}
 
-def whoami(json_out: bool = typer.Option(False, "--json", "--json-out", help="Output JSON")):
+def whoami(
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
+):
     s = load_settings()
 
     # Re-obtain token the same way Settings.auth_headers() does (env > keyring)
@@ -51,7 +58,11 @@ def whoami(json_out: bool = typer.Option(False, "--json", "--json-out", help="Ou
     }
 
     if json_out:
-        typer.echo(json.dumps(row, indent=2, default=str))
+        format = "json"
+
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        headers = list(row.keys())
+        formatter.output([row], headers=headers)
     else:
-        from tabulate import tabulate
-        typer.echo(tabulate([row], headers="keys"))
+        formatter.output(row)

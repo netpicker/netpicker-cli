@@ -3,14 +3,17 @@ import typer
 from typing import List, Optional
 from tabulate import tabulate
 from ..utils.config import load_settings
-from ..api.client import ApiClient
+from ..api.client import ApiClient, AsyncApiClient
+import asyncio
 from ..api.errors import ApiError
+from ..utils.output import OutputFormatter, OutputFormat
+from ..utils.output import OutputFormatter, OutputFormat
 
 app = typer.Typer(add_completion=False)
 
 
 @app.callback(invoke_without_command=True)
-def main_callback(ctx: typer.Context):
+def main_callback(ctx: typer.Context) -> None:
     """
     Show available compliance commands when no subcommand is provided.
     """
@@ -31,7 +34,7 @@ def main_callback(ctx: typer.Context):
         typer.echo("  netpicker compliance overview")
         typer.echo("  netpicker compliance report-tenant")
         typer.echo("  netpicker compliance devices")
-        typer.echo("  netpicker compliance status --ip 192.168.1.1")
+        typer.echo("  netpicker compliance status 192.168.1.1")
         typer.echo("")
         typer.echo("Use 'netpicker compliance <command> --help' for more information about a specific command.")
         raise typer.Exit()
@@ -41,7 +44,11 @@ def main_callback(ctx: typer.Context):
 
 
 @app.command("overview")
-def overview(json_out: bool = typer.Option(False, "--json", "--json-out")):
+def overview(
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
+):
     """
     Get compliance overview for the tenant.
 
@@ -58,30 +65,27 @@ def overview(json_out: bool = typer.Option(False, "--json", "--json-out")):
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
-        return
+        format = "json"
 
-    if not isinstance(data, dict):
-        typer.echo(str(data))
-        return
+    formatter = OutputFormatter(format=format, output_file=output_file)
 
-    devices = data.get("devices", {}) or {}
-    policies = data.get("policies", {}) or {}
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        if not isinstance(data, dict):
+            typer.echo(str(data))
+            return
 
-    if devices:
-        typer.echo("Devices:")
-        drows = [[k, v] for k, v in devices.items()]
-        typer.echo(tabulate(drows, headers=["severity", "count"]))
+        devices = data.get("devices", {}) or {}
+        policies = data.get("policies", {}) or {}
+
+        rows = []
+        for k, v in devices.items():
+            rows.append({"category": "device", "severity": k, "count": v})
+        for k, v in policies.items():
+            rows.append({"category": "policy", "status": k, "count": v})
+
+        formatter.output(rows, headers=["category", "severity", "status", "count"])
     else:
-        typer.echo("Devices: none")
-
-    if policies:
-        typer.echo("")
-        typer.echo("Policies:")
-        prows = [[k, v] for k, v in policies.items()]
-        typer.echo(tabulate(prows, headers=["status", "count"]))
-    else:
-        typer.echo("Policies: none")
+        formatter.output(data)
 
 
 @app.command("report-tenant")
@@ -98,7 +102,10 @@ def tenant_report(
     page: int = typer.Option(1, "--page", help="Page number (1-based)"),
     size: int = typer.Option(50, "--size", help="Page size (max 1000)"),
     all_pages: bool = typer.Option(False, "--all", help="Fetch all pages"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    parallel: int = typer.Option(0, "--parallel", help="Enable parallel fetch with given concurrency (0=disabled)"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Get compliance report for the tenant.
@@ -138,7 +145,53 @@ def tenant_report(
         return cli.get(f"/api/v1/compliance/{s.tenant}/report", params=params).json()
 
     try:
-        if all_pages:
+        if all_pages and parallel and parallel > 0:
+            async def _fetch_all():
+                async_client = AsyncApiClient(s)
+                all_items = []
+                cur = 1
+                stop = False
+                try:
+                    while not stop:
+                        batch_pages = [cur + i for i in range(parallel)]
+                        tasks = []
+                        for p in batch_pages:
+                            params = {}
+                            if policy: params["policy"] = policy
+                            if ruleset: params["ruleset"] = ruleset
+                            if rule: params["rule"] = rule
+                            if outcome: params["outcome"] = outcome
+                            if tags: params["tags"] = tags
+                            if ipaddress: params["ipaddress"] = ipaddress
+                            if ipaddresses: params["ipaddresses"] = ipaddresses
+                            if q: params["q"] = q
+                            if ordering: params["ordering"] = ordering
+                            params["page"] = p
+                            params["size"] = size
+                            tasks.append(async_client.get(f"/api/v1/compliance/{s.tenant}/report", params=params))
+                        responses = await asyncio.gather(*tasks, return_exceptions=True)
+                        for resp in responses:
+                            if isinstance(resp, Exception):
+                                items = []
+                            else:
+                                data = resp.json()
+                                items = data.get("items") if isinstance(data, dict) else data
+                            if not items:
+                                stop = True
+                                break
+                            all_items.extend(items)
+                            if isinstance(data, dict):
+                                pages = data.get("pages")
+                                if pages and cur >= pages:
+                                    stop = True
+                                    break
+                        cur += parallel
+                finally:
+                    await async_client.close()
+                return {"items": all_items, "total": len(all_items)}
+
+            result = asyncio.run(_fetch_all())
+        elif all_pages:
             cur = 1
             all_items = []
             while True:
@@ -162,27 +215,31 @@ def tenant_report(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(result, indent=2))
-        return
+        format = "json"
 
     items = result.get("items", []) if isinstance(result, dict) else result
     if not items:
         typer.echo("No report entries")
         return
 
-    rows = []
-    for it in items:
-        rows.append([
-            it.get("id"),
-            it.get("ipaddress"),
-            it.get("name"),
-            it.get("policy"),
-            it.get("rule"),
-            it.get("outcome"),
-            it.get("exec_at"),
-        ])
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    headers = ["id", "ip", "name", "policy", "rule", "outcome", "exec_at"]
 
-    typer.echo(tabulate(rows, headers=["id", "ip", "name", "policy", "rule", "outcome", "exec_at"]))
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        rows = []
+        for it in items:
+            rows.append({
+                "id": it.get("id"),
+                "ip": it.get("ipaddress"),
+                "name": it.get("name"),
+                "policy": it.get("policy"),
+                "rule": it.get("rule"),
+                "outcome": it.get("outcome"),
+                "exec_at": it.get("exec_at"),
+            })
+        formatter.output(rows, headers=headers)
+    else:
+        formatter.output(items)
 
 
 @app.command("devices")
@@ -199,7 +256,10 @@ def policy_devices(
     page: int = typer.Option(1, "--page", help="Page number (1-based)"),
     size: int = typer.Option(50, "--size", help="Page size (max 1000)"),
     all_pages: bool = typer.Option(False, "--all", help="Fetch all pages"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    parallel: int = typer.Option(0, "--parallel", help="Enable parallel fetch with given concurrency (0=disabled)"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Get policy devices list for the tenant.
@@ -238,7 +298,53 @@ def policy_devices(
         return cli.get(f"/api/v1/compliance/{s.tenant}/devices", params=params).json()
 
     try:
-        if all_pages:
+        if all_pages and parallel and parallel > 0:
+            async def _fetch_all():
+                async_client = AsyncApiClient(s)
+                all_items = []
+                cur = 1
+                stop = False
+                try:
+                    while not stop:
+                        batch_pages = [cur + i for i in range(parallel)]
+                        tasks = []
+                        for p in batch_pages:
+                            params = {}
+                            if policy: params["policy"] = policy
+                            if ruleset: params["ruleset"] = ruleset
+                            if rule: params["rule"] = rule
+                            if outcome: params["outcome"] = outcome
+                            if tags: params["tags"] = tags
+                            if ipaddress: params["ipaddress"] = ipaddress
+                            if ipaddresses: params["ipaddresses"] = ipaddresses
+                            if q: params["q"] = q
+                            if ordering: params["ordering"] = ordering
+                            params["page"] = p
+                            params["size"] = size
+                            tasks.append(async_client.get(f"/api/v1/compliance/{s.tenant}/devices", params=params))
+                        responses = await asyncio.gather(*tasks, return_exceptions=True)
+                        for resp in responses:
+                            if isinstance(resp, Exception):
+                                items = []
+                            else:
+                                data = resp.json()
+                                items = data.get("items") if isinstance(data, dict) else data
+                            if not items:
+                                stop = True
+                                break
+                            all_items.extend(items)
+                            if isinstance(data, dict):
+                                pages = data.get("pages")
+                                if pages and cur >= pages:
+                                    stop = True
+                                    break
+                        cur += parallel
+                finally:
+                    await async_client.close()
+                return all_items
+
+            items = asyncio.run(_fetch_all())
+        elif all_pages:
             cur = 1
             all_items = []
             while True:
@@ -263,19 +369,27 @@ def policy_devices(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(items, indent=2))
-        return
+        format = "json"
 
-    rows = []
-    for it in items:
-        summary = it.get("summary") or {}
-        if isinstance(summary, dict):
-            summary_str = ", ".join([f"{k}:{v}" for k, v in summary.items()])
-        else:
-            summary_str = str(summary)
-        rows.append([it.get("ipaddress"), it.get("name"), summary_str])
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    headers = ["ip", "name", "summary"]
 
-    typer.echo(tabulate(rows, headers=["ip", "name", "summary"]))
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        rows: list[dict] = []
+        for it in items:
+            summary = it.get("summary") or {}
+            if isinstance(summary, dict):
+                summary_str = ", ".join([f"{k}:{v}" for k, v in summary.items()])
+            else:
+                summary_str = str(summary)
+            rows.append({
+                "ip": it.get("ipaddress"),
+                "name": it.get("name"),
+                "summary": summary_str,
+            })
+        formatter.output(rows, headers=headers)
+    else:
+        formatter.output(items)
 
 
 @app.command("export")
@@ -289,7 +403,9 @@ def export_report(
     ipaddresses: List[str] = typer.Option(None, "--ipaddresses", help="Filter by multiple ipaddresses"),
     q: Optional[str] = typer.Option(None, "--q", help="Free-text query"),
     ordering: List[str] = typer.Option(None, "--ordering", help="Ordering fields (repeatable)"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Export the tenant compliance report.
@@ -337,17 +453,30 @@ def export_report(
         is_json = False
 
     if json_out:
-        if is_json:
-            typer.echo(json.dumps(data, indent=2))
-        else:
-            typer.echo(json.dumps({"export": data}, indent=2))
-        return
+        format = "json"
 
-    typer.echo(str(data))
+    if is_json:
+        formatter = OutputFormatter(format=format, output_file=output_file)
+        formatter.output(data)
+    else:
+        # plain text export; honor --output if provided
+        if output_file:
+            from pathlib import Path as _Path
+            p = _Path(output_file)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(str(data))
+        else:
+            typer.echo(str(data))
 
 
 @app.command("status")
-def device_status(ipaddress: str = typer.Argument(..., help="Device IP/FQDN"), json_out: bool = typer.Option(False, "--json", "--json-out")):
+def device_status(
+    ipaddress: str = typer.Argument(..., help="Device IP/FQDN"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
+):
     """
     Get compliance status for a device.
 
@@ -372,32 +501,51 @@ def device_status(ipaddress: str = typer.Argument(..., help="Device IP/FQDN"), j
         is_json = False
 
     if json_out:
-        if is_json:
-            typer.echo(json.dumps(data, indent=2))
+        format = "json"
+
+    if not is_json:
+        # treat as plain text result
+        if output_file:
+            from pathlib import Path as _Path
+            p = _Path(output_file)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(str(data))
         else:
-            typer.echo(json.dumps({"status": data}, indent=2))
+            typer.echo(str(data))
         return
 
-    if not is_json or not isinstance(data, dict):
-        typer.echo(str(data))
+    if not isinstance(data, dict):
+        formatter = OutputFormatter(format=format, output_file=output_file)
+        formatter.output(data)
         return
 
     ip = data.get("ipaddress") or ipaddress
     executed = data.get("executed") or data.get("executed_at") or data.get("timestamp")
     summary = data.get("summary") or {}
 
-    typer.echo(f"ipaddress: {ip}")
-    typer.echo(f"executed: {executed}")
+    formatter = OutputFormatter(format=format, output_file=output_file)
 
-    if isinstance(summary, dict) and summary:
-        rows = [[k, v] for k, v in summary.items()]
-        typer.echo(tabulate(rows, headers=["status","count"]))
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        rows: list[dict] = [
+            {"section": "meta", "key": "ipaddress", "value": ip},
+            {"section": "meta", "key": "executed", "value": executed},
+        ]
+        if isinstance(summary, dict) and summary:
+            for k, v in summary.items():
+                rows.append({"section": "summary", "key": k, "value": v})
+        headers = ["section", "key", "value"]
+        formatter.output(rows, headers=headers)
     else:
-        typer.echo("summary: none")
+        formatter.output(data)
 
 
 @app.command("failures")
-def failures(json_out: bool = typer.Option(False, "--json", "--json-out")):
+def failures(
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
+):
     """
     Get compliance failures for the tenant.
 
@@ -422,29 +570,30 @@ def failures(json_out: bool = typer.Option(False, "--json", "--json-out")):
         is_json = False
 
     if json_out:
-        if is_json:
-            typer.echo(json.dumps(data, indent=2))
-        else:
-            typer.echo(json.dumps({"failures": data}, indent=2))
-        return
+        format = "json"
 
     items = data if isinstance(data, list) else (data.get("items", []) if isinstance(data, dict) else [])
     if not items:
         typer.echo("No failures")
         return
 
-    rows = []
-    for it in items:
-        ip = it.get("ipaddress")
-        executed = it.get("executed") or it.get("executed_at")
-        summary = it.get("summary") or {}
-        if isinstance(summary, dict):
-            summary_str = ", ".join([f"{k}:{v}" for k, v in summary.items()])
-        else:
-            summary_str = str(summary)
-        rows.append([ip, executed, summary_str])
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    headers = ["ip", "executed", "summary"]
 
-    typer.echo(tabulate(rows, headers=["ip", "executed", "summary"]))
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        rows = []
+        for it in items:
+            ip = it.get("ipaddress")
+            executed = it.get("executed") or it.get("executed_at")
+            summary = it.get("summary") or {}
+            if isinstance(summary, dict):
+                summary_str = ", ".join([f"{k}:{v}" for k, v in summary.items()])
+            else:
+                summary_str = str(summary)
+            rows.append({"ip": ip, "executed": executed, "summary": summary_str})
+        formatter.output(rows, headers=headers)
+    else:
+        formatter.output(items)
 
 
 @app.command("log")
@@ -452,7 +601,9 @@ def log_compliance(
     config_id: str = typer.Argument(..., help="Config id"),
     body: Optional[str] = typer.Option(None, "--body", help="JSON string or @file.json to send as request body"),
     example: bool = typer.Option(False, "--example", help="Print a sample payload JSON and exit"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Log compliance for a config id.
@@ -511,13 +662,20 @@ def log_compliance(
         is_json = False
 
     if json_out:
-        if is_json:
-            typer.echo(json.dumps(data, indent=2))
-        else:
-            typer.echo(json.dumps({"result": data}, indent=2))
-        return
+        format = "json"
 
-    typer.echo(str(data))
+    if is_json:
+        formatter = OutputFormatter(format=format, output_file=output_file)
+        formatter.output(data)
+    else:
+        if output_file:
+            from pathlib import Path as _Path
+            p = _Path(output_file)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(str(data))
+        else:
+            typer.echo(str(data))
 
 
 @app.command("report-config")
@@ -525,7 +683,9 @@ def report_config(
     config_id: str = typer.Argument(..., help="Config id"),
     body: Optional[str] = typer.Option(None, "--body", help="JSON string or @file.json to send as request body (array or object)"),
     example: bool = typer.Option(False, "--example", help="Print a sample payload JSON and exit"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Report compliance for a specific config id.
@@ -593,10 +753,17 @@ def report_config(
         is_json = False
 
     if json_out:
-        if is_json:
-            typer.echo(json.dumps(data, indent=2))
-        else:
-            typer.echo(json.dumps({"result": data}, indent=2))
-        return
+        format = "json"
 
-    typer.echo(str(data))
+    if is_json:
+        formatter = OutputFormatter(format=format, output_file=output_file)
+        formatter.output(data)
+    else:
+        if output_file:
+            from pathlib import Path as _Path
+            p = _Path(output_file)
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with open(p, "w", encoding="utf-8") as fh:
+                fh.write(str(data))
+        else:
+            typer.echo(str(data))

@@ -1,18 +1,21 @@
 import sys
 import json
 import typer
+from typing import Optional, Any, List
 from tabulate import tabulate
 from pathlib import Path
 from ..utils.config import load_settings
-from ..api.client import ApiClient
+from ..api.client import ApiClient, AsyncApiClient
+import asyncio
 from ..utils.files import atomic_write
 import difflib
+from ..utils.output import OutputFormatter, OutputFormat
 
 app = typer.Typer(add_completion=False)
 
 
 @app.callback(invoke_without_command=True)
-def main_callback(ctx: typer.Context):
+def main_callback(ctx: typer.Context) -> None:
     """
     Show available backup commands when no subcommand is provided.
     """
@@ -39,7 +42,8 @@ def main_callback(ctx: typer.Context):
         raise typer.Exit()
 
 
-def _as_items(data):
+def _as_items(data: Any) -> List[dict]:
+    """Extract items list from API response."""
     if isinstance(data, list):
         return data
     if isinstance(data, dict):
@@ -53,7 +57,9 @@ def diff_configs(
     id_a: str = typer.Option("", "--id-a", help="(Optional) older config id; requires --ip"),
     id_b: str = typer.Option("", "--id-b", help="(Optional) newer config id; requires --ip"),
     context: int = typer.Option(3, "--context", help="Unified diff context lines"),
-    json_out: bool = typer.Option(False, "--json", "--json-out", help="Output JSON with diff lines"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON with diff lines"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Diff two configs for a device.
@@ -99,22 +105,38 @@ def diff_configs(
     diff_lines = list(difflib.unified_diff(a_text, b_text, fromfile=a_name, tofile=b_name, n=context))
 
     if json_out:
-        typer.echo(json.dumps({"id_a": id_a, "id_b": id_b, "diff": diff_lines}, indent=2))
-    else:
-        for line in diff_lines:
-            if line.startswith("+") and not line.startswith("+++"):
-                typer.secho(line, fg=typer.colors.GREEN)
-            elif line.startswith("-") and not line.startswith("---"):
-                typer.secho(line, fg=typer.colors.RED)
-            else:
-                typer.echo(line)
+        format = "json"
 
-
+    if format == "json":
+        formatter = OutputFormatter(format=format, output_file=output_file)
+        formatter.output({"id_a": id_a, "id_b": id_b, "diff": diff_lines})
+    elif format == "table":
+        # Table format is the traditional colored diff output
+        # If output_file is specified, we write the plain text without colors
+        if output_file:
+            content = "\n".join(diff_lines) + "\n"
+            Path(output_file).parent.mkdir(parents=True, exist_ok=True)
+            with open(output_file, "w") as f:
+                f.write(content)
+        else:
+            for line in diff_lines:
+                if line.startswith("+") and not line.startswith("+++"):
+                    typer.secho(line, fg=typer.colors.GREEN)
+                elif line.startswith("-") and not line.startswith("---"):
+                    typer.secho(line, fg=typer.colors.RED)
+                else:
+                    typer.echo(line)
+    elif format in ["csv", "yaml"]:
+        formatter = OutputFormatter(format=format, output_file=output_file)
+        # For CSV/YAML, a diff list isn't very helpful but we can provide it
+        formatter.output({"id_a": id_a, "id_b": id_b, "diff": diff_lines})
 
 @app.command("recent")
 def recent(
     limit: int = 10,
-    json_out: bool = typer.Option(False, "--json", "--json-out", help="Output JSON instead of table"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON instead of table"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     List the most recent configuration backups across devices.
@@ -127,39 +149,124 @@ def recent(
     cli = ApiClient(s)
     data = cli.get(f"/api/v1/devices/{s.tenant}/recent-configs/", params={"limit": limit}).json()
     items = _as_items(data)
+    
     if json_out:
-        typer.echo(json.dumps(items, indent=2)); return
+        format = "json"
 
-    def _sz(it): return it.get("size") or it.get("file_size")
-    def _ts(it): return it.get("created_at") or it.get("upload_date")
-    def _err(it): return "ERR" if it.get("readout_error") else ""
-    rows = [[it.get("name") or it.get("device"),
-             it.get("ipaddress"),
-             it.get("id") or it.get("config_id"),
-             _ts(it), _sz(it), _err(it)] for it in items]
-    typer.echo(tabulate(rows, headers=["device","ip","config_id","created_at","size","error"]))
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    headers = ["device", "ip", "config_id", "created_at", "size", "error"]
+
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        def _sz(it): return it.get("size") or it.get("file_size")
+        def _ts(it): return it.get("created_at") or it.get("upload_date")
+        def _err(it): return "ERR" if it.get("readout_error") else ""
+        
+        rows = []
+        for it in items:
+            rows.append({
+                "device": it.get("name") or it.get("device"),
+                "ip": it.get("ipaddress"),
+                "config_id": it.get("id") or it.get("config_id"),
+                "created_at": _ts(it),
+                "size": _sz(it),
+                "error": _err(it)
+            })
+        formatter.output(rows, headers=headers)
+    else:
+        formatter.output(items)
 
 @app.command("list")
 def list_configs(
     ip: str = typer.Option(..., "--ip", help="Device IP/FQDN"),
     limit: int = 20,
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    page: int = typer.Option(1, "--page", help="Page number (1-based)"),
+    size: int = typer.Option(50, "--size", help="Page size"),
+    all_: bool = typer.Option(False, "--all", help="Fetch all pages"),
+    parallel: int = typer.Option(0, "--parallel", "-p", help="Enable parallel fetch with given concurrency (0=disabled)"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     List configuration backups for a single device.
 
-    Calls GET /api/v1/devices/{tenant}/{ip}/configs and prints recent config
-    entries for the given `--ip`. Use `--limit` to restrict results and
-    `--json` to output raw JSON instead of a table.
+    Calls GET /api/v1/devices/{tenant}/{ip}/configs with pagination support.
+    Use --all to fetch all pages, --parallel for concurrent fetching.
     """
-    s = load_settings(); cli = ApiClient(s)
-    data = cli.get(f"/api/v1/devices/{s.tenant}/{ip}/configs").json()
-    items = _as_items(data)
-    if json_out: typer.echo(json.dumps(items, indent=2)); return
-    def _ts(it): return it.get("created_at") or it.get("upload_date")
-    def _sz(it): return it.get("size") or it.get("file_size")
-    rows = [[it.get("id"), _ts(it), _sz(it), it.get("digest") or it.get("hash")] for it in items]
-    typer.echo(tabulate(rows, headers=["id","created_at","size","digest"]))
+    s = load_settings()
+    cli = ApiClient(s)
+
+    def _fetch(p):
+        params = {"size": size, "page": p}
+        return cli.get(f"/api/v1/devices/{s.tenant}/{ip}/configs", params=params).json()
+
+    try:
+        if all_ and parallel and parallel > 0:
+            async def _fetch_all():
+                async_client = AsyncApiClient(s)
+                all_items = []
+                cur = page
+                stop = False
+                try:
+                    while not stop:
+                        batch_pages = [cur + i for i in range(parallel)]
+                        tasks = [async_client.get(f"/api/v1/devices/{s.tenant}/{ip}/configs", params={"size": size, "page": p}) for p in batch_pages]
+                        responses = await asyncio.gather(*tasks, return_exceptions=True)
+                        for resp in responses:
+                            if isinstance(resp, Exception):
+                                items = []
+                            else:
+                                data = resp.json()
+                                items = _as_items(data)
+                            if len(items) < size:
+                                stop = True
+                            all_items.extend(items)
+                        cur += parallel
+                finally:
+                    await async_client.close()
+                return all_items
+
+            items = asyncio.run(_fetch_all())
+        elif all_:
+            cur = page
+            all_items = []
+            while True:
+                data = _fetch(cur)
+                items = _as_items(data)
+                all_items.extend(items)
+                if len(items) < size:
+                    break
+                cur += 1
+            items = all_items
+        else:
+            data = _fetch(page)
+            items = _as_items(data)
+    except Exception as e:
+        typer.echo(f"Error: {e}")
+        raise typer.Exit(1)
+
+    if json_out:
+        format = "json"
+
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    headers = ["id", "created_at", "size", "digest"]
+
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        def _ts(it): return it.get("created_at") or it.get("upload_date")
+        def _sz(it): return it.get("size") or it.get("file_size")
+        rows = [
+            {
+                "id": it.get("id"),
+                "created_at": _ts(it),
+                "size": _sz(it),
+                "digest": it.get("digest") or it.get("hash")
+            }
+            for it in items
+        ]
+        formatter.output(rows, headers=headers)
+    else:
+        formatter.output(items)
+
 
 @app.command("fetch")
 def fetch(
@@ -188,7 +295,9 @@ def search_configs(
     limit: int = typer.Option(20, "--limit", help="Max results to return"),
     device: str = typer.Option("", "--device", help="Search only this device IP/FQDN"),
     scope: str = typer.Option("recent", "--scope", help="Fallback scope: recent|device"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Search configs across devices.
@@ -247,20 +356,28 @@ def search_configs(
                     if len(items) >= limit:
                         break
 
-    # Output
     if json_out:
-        import json as _json
-        typer.echo(_json.dumps(items, indent=2)); return
+        format = "json"
 
-    from tabulate import tabulate
-    def _sz(it): return it.get("size") or it.get("file_size")
-    def _ts(it): return it.get("created_at") or it.get("upload_date")
-    rows = [[it.get("name") or it.get("device"),
-             it.get("ipaddress"),
-             it.get("id") or it.get("config_id"),
-             _ts(it),
-             _sz(it)] for it in items]
-    typer.echo(tabulate(rows, headers=["device","ip","config_id","created_at","size"]))
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    headers = ["device", "ip", "config_id", "created_at", "size"]
+
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        def _ts(it): return it.get("created_at") or it.get("upload_date")
+        def _sz(it): return it.get("size") or it.get("file_size")
+        rows = [
+            {
+                "device": it.get("name") or it.get("device"),
+                "ip": it.get("ipaddress"),
+                "config_id": it.get("id") or it.get("config_id"),
+                "created_at": _ts(it),
+                "size": _sz(it)
+            }
+            for it in items
+        ]
+        formatter.output(rows, headers=headers)
+    else:
+        formatter.output(items)
 
 @app.command("commands")
 def backup_commands(

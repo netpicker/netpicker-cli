@@ -13,6 +13,8 @@ class Settings:
     timeout: float = 30.0
     insecure: bool = False
     token: Optional[str] = None
+    verbose: bool = False
+    quiet: bool = False
 
     def auth_headers(self) -> Dict[str, str]:
         """
@@ -79,12 +81,18 @@ def load_settings() -> Settings:
     except ValueError:
         timeout = 30.0
 
+    # Logging configuration
+    verbose = _env_bool("NETPICKER_VERBOSE", default=False)
+    quiet = _env_bool("NETPICKER_QUIET", default=False)
+
     return Settings(
         base_url=base,
         tenant=tenant,
         timeout=timeout,
         insecure=insecure,
         token=token,
+        verbose=verbose,
+        quiet=quiet,
     )
 
 

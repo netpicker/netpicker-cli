@@ -1,9 +1,13 @@
+from __future__ import annotations
 import time
+from typing import Any
 import typer
 from ..utils.config import load_settings
+from ..utils.logging import output_message
 from ..api.client import ApiClient
 
-def do_health():
+def do_health() -> None:
+    """Perform a health check against the API."""
     s = load_settings()
     client = ApiClient(s)
     t0 = time.perf_counter()
@@ -13,4 +17,4 @@ def do_health():
     # Don’t print Authorization header; show a concise summary instead
     api_base = data.get("api_base", s.base_url)
     tz = data.get("tz") or data.get("scheduler_timezone") or "UTC"
-    typer.secho(f"OK ({ms} ms) — api_base={api_base} tz={tz}", fg=typer.colors.GREEN)
+    output_message(f"OK ({ms} ms) — api_base={api_base} tz={tz}")

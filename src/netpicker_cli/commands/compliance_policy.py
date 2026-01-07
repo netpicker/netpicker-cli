@@ -1,62 +1,63 @@
 import json
 import typer
+from typing import Optional
 from tabulate import tabulate
 from ..utils.config import load_settings
 from ..api.client import ApiClient
 from ..api.errors import ApiError, NotFound
+from ..utils.output import OutputFormatter, OutputFormat
+from ..utils.cli_helpers import with_client, handle_api_errors
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
 
 @app.command("list")
-def list_policies(json_out: bool = typer.Option(False, "--json", "--json-out")):
+@handle_api_errors
+def list_policies(
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
+):
     """
     List compliance policies.
 
     Calls GET /api/v1/policy/{tenant} and displays available policies.
     Use --json to see the raw response.
     """
-    s = load_settings()
-    cli = ApiClient(s)
-    
-    try:
+    with with_client() as (s, cli):
         data = cli.get(f"/api/v1/policy/{s.tenant}").json()
-    except NotFound:
-        typer.echo("No compliance policies found for this tenant.")
-        raise typer.Exit(code=1)
-    except ApiError as e:
-        typer.echo(f"API error: {e}")
-        raise typer.Exit(code=1)
-    except Exception as e:
-        typer.echo(f"Unexpected error: {e}")
-        raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
-        return
+        format = "json"
 
-    # Display as table
     policies = data if isinstance(data, list) else []
     if not policies:
         typer.echo("No policies found.")
         return
     
-    rows = []
-    for policy in policies:
-        rows.append([
-            policy.get("id", ""),
-            policy.get("name", ""),
-            "Yes" if policy.get("enabled") else "No",
-            "Yes" if policy.get("read_only") else "No",
-        ])
-    
-    typer.echo(tabulate(rows, headers=["ID", "Name", "Enabled", "Read-Only"]))
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    headers = ["id", "name", "enabled", "read_only"]
+
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        rows = []
+        for policy in policies:
+            rows.append({
+                "id": policy.get("id", ""),
+                "name": policy.get("name", ""),
+                "enabled": "Yes" if policy.get("enabled") else "No",
+                "read_only": "Yes" if policy.get("read_only") else "No",
+            })
+        formatter.output(rows, headers=headers)
+    else:
+        formatter.output(policies)
 
 
 @app.command("show")
 def show_policy(
     policy_id: str = typer.Argument(..., help="Policy ID"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Get details of a specific compliance policy.
@@ -80,38 +81,38 @@ def show_policy(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
-        return
+        format = "json"
 
-    # Display policy details
-    typer.echo(f"ID:          {data.get('id', '')}")
-    typer.echo(f"Name:        {data.get('name', '')}")
-    typer.echo(f"Description: {data.get('description', '')}")
-    typer.echo(f"Author:      {data.get('author', '')}")
-    typer.echo(f"Enabled:     {data.get('enabled', False)}")
-    typer.echo(f"Read-Only:   {data.get('read_only', False)}")
-    typer.echo(f"Created:     {data.get('created', '')}")
-    typer.echo(f"Changed:     {data.get('changed', '')}")
-    
-    # Display summary
-    summary = data.get("summary", {})
-    if summary:
-        typer.echo("\nSummary:")
+    formatter = OutputFormatter(format=format, output_file=output_file)
+
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        rows = []
+        # meta
+        for k in [
+            ("id", data.get("id", "")),
+            ("name", data.get("name", "")),
+            ("description", data.get("description", "")),
+            ("author", data.get("author", "")),
+            ("enabled", data.get("enabled", False)),
+            ("read_only", data.get("read_only", False)),
+            ("created", data.get("created", "")),
+            ("changed", data.get("changed", "")),
+        ]:
+            rows.append({"section": "meta", "key": k[0], "value": k[1]})
+        # summary
+        summary = data.get("summary", {}) or {}
         for status, count in sorted(summary.items()):
-            typer.echo(f"  {status}: {count}")
-    
-    # Display rules if present
-    rules = data.get("rules", [])
-    if rules:
-        typer.echo(f"\nRules ({len(rules)}):")
-        for rule in rules:
-            typer.echo(f"  - {rule.get('name', '')}: {rule.get('description', '')}")
-            if rule.get("stats"):
-                stats_str = ", ".join(f"{k}: {v}" for k, v in rule.get("stats", {}).items())
-                typer.echo(f"    Stats: {stats_str}")
-            if rule.get("platform"):
-                typer.echo(f"    Platforms: {', '.join(rule.get('platform', []))}")
-            typer.echo(f"    Severity: {rule.get('severity', '')}")
+            rows.append({"section": "summary", "key": status, "value": count})
+        # rules
+        for rule in data.get("rules", []) or []:
+            rows.append({
+                "section": "rule",
+                "key": rule.get("name", ""),
+                "value": rule.get("severity", ""),
+            })
+        formatter.output(rows, headers=["section", "key", "value"])
+    else:
+        formatter.output(data)
 
 
 @app.command("update")
@@ -122,7 +123,9 @@ def update_policy(
     author: str = typer.Option(None, "--author", help="Policy author"),
     enabled: bool = typer.Option(None, "--enabled/--disabled", help="Enable or disable policy"),
     policy_type: str = typer.Option(None, "--type", help="Policy type"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Update a compliance policy.
@@ -163,9 +166,14 @@ def update_policy(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        formatter.output([
+            {"policy_id": data.get("id", policy_id), "status": "updated"}
+        ], headers=["policy_id", "status"])
     else:
-        typer.echo(f"✓ Policy '{policy_id}' updated successfully")
+        formatter.output(data)
 
 
 @app.command("replace")
@@ -176,7 +184,9 @@ def replace_policy(
     author: str = typer.Option("", "--author", help="Policy author"),
     enabled: bool = typer.Option(True, "--enabled/--disabled", help="Enable or disable policy"),
     policy_type: str = typer.Option("", "--type", help="Policy type"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Replace a compliance policy (full update).
@@ -209,9 +219,14 @@ def replace_policy(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        formatter.output([
+            {"policy_id": data.get("id", policy_id), "status": "replaced"}
+        ], headers=["policy_id", "status"])
     else:
-        typer.echo(f"✓ Policy '{data.get('id', policy_id)}' replaced successfully")
+        formatter.output(data)
 
 
 @app.command("create")
@@ -222,7 +237,9 @@ def create_policy(
     author: str = typer.Option("", "--author", help="Policy author"),
     enabled: bool = typer.Option(True, "--enabled/--disabled", help="Enable or disable policy"),
     policy_type: str = typer.Option("", "--type", help="Policy type"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Create a new compliance policy.
@@ -255,14 +272,19 @@ def create_policy(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        formatter.output([
+            {
+                "id": data.get("id", ""),
+                "name": data.get("name", ""),
+                "enabled": data.get("enabled", False),
+                "created": data.get("created", ""),
+            }
+        ], headers=["id", "name", "enabled", "created"])
     else:
-        typer.echo(f"✓ Policy '{data.get('id', '')}' created successfully")
-        typer.echo(f"  Name:        {data.get('name', '')}")
-        typer.echo(f"  Description: {data.get('description', '')}")
-        typer.echo(f"  Author:      {data.get('author', '')}")
-        typer.echo(f"  Enabled:     {data.get('enabled', False)}")
-        typer.echo(f"  Created:     {data.get('created', '')}")
+        formatter.output(data)
 
 
 @app.command("add-rule")
@@ -282,7 +304,9 @@ def add_rule(
     definition_code: str = typer.Option(None, "--definition-code", help="Rule definition code"),
     definition_start: int = typer.Option(-1, "--definition-start", help="Definition range start"),
     definition_end: int = typer.Option(-1, "--definition-end", help="Definition range end"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Add or replace a rule in a compliance policy.
@@ -337,16 +361,23 @@ def add_rule(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        formatter.output([
+            {"policy_id": policy_id, "rule": name, "status": "added/replaced"}
+        ], headers=["policy_id", "rule", "status"])
     else:
-        typer.echo(f"✓ Rule '{name}' added/replaced in policy '{policy_id}' successfully")
+        formatter.output(data)
 
 
 @app.command("remove-rule")
 def remove_rule(
     policy_id: str = typer.Argument(..., help="Policy ID"),
     rule_name: str = typer.Argument(..., help="Rule name to remove"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Remove a rule from a compliance policy.
@@ -388,9 +419,14 @@ def remove_rule(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
+        format = "json"
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        formatter.output([
+            {"policy_id": policy_id, "rule": rule_name, "status": "removed"}
+        ], headers=["policy_id", "rule", "status"])
     else:
-        typer.echo(f"✓ Rule '{rule_name}' removed from policy '{policy_id}' successfully")
+        formatter.output(data)
 
 
 @app.command("test-rule")
@@ -412,7 +448,9 @@ def test_rule(
     definition_code: str = typer.Option(None, "--definition-code", help="Rule definition code"),
     definition_start: int = typer.Option(-1, "--definition-start", help="Definition range start"),
     definition_end: int = typer.Option(-1, "--definition-end", help="Definition range end"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Test a compliance rule against device configuration.
@@ -477,57 +515,22 @@ def test_rule(
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
-        return
-
-    # Display test results
-    result = data.get("result", {})
-    errors = data.get("errors", [])
-    
-    typer.echo(f"Rule Test Results for '{name}':")
-    typer.echo(f"Outcome: {result.get('outcome', 'UNKNOWN')}")
-    typer.echo(f"Rule Name: {result.get('rule_name', '')}")
-    typer.echo(f"Executed At: {result.get('exec_at', '')}")
-    typer.echo(f"Execution Time: {result.get('exec_ns', 0)} ns")
-    
-    if result.get('commit'):
-        typer.echo(f"Commit: {result.get('commit')}")
-    
-    # Show errors if any
-    if errors:
-        typer.echo(f"\nErrors ({len(errors)}):")
-        for error in errors:
-            typer.echo(f"  - {error}")
-    
-    # Show exception info if present
-    excinfo = result.get("excinfo")
-    if excinfo:
-        typer.echo(f"\nException: {excinfo.get('message', '')}")
-        tb = excinfo.get("tb")
-        if tb:
-            typer.echo(f"  File: {tb.get('path', '')}:{tb.get('lineno', 0)}")
-            typer.echo(f"  Line: {tb.get('relline', 0)}")
-    
-    # Show pass info if present
-    passinfo = result.get("passinfo")
-    if passinfo and passinfo.get("passed"):
-        typer.echo(f"\nPassed Checks ({len(passinfo['passed'])}):")
-        for passed in passinfo["passed"]:
-            typer.echo(f"  Line {passed.get('lineno', 0)}: {passed.get('explanation', '')}")
-    
-    # Show CLI log if present
-    cli_log = result.get("cli_log", [])
-    if cli_log:
-        typer.echo(f"\nCLI Interactions ({len(cli_log)}):")
-        for log_entry in cli_log:
-            typer.echo(f"  Device: {log_entry.get('ipaddress', '')}")
-            for cmd in log_entry.get("commands", []):
-                typer.echo(f"    > {cmd.get('command', '')}")
-                # Truncate long responses
-                response = cmd.get('response', '')
-                if len(response) > 200:
-                    response = response[:200] + "..."
-                typer.echo(f"    < {response}")
+        format = "json"
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        result = data.get("result", {}) if isinstance(data, dict) else {}
+        errors = data.get("errors", []) if isinstance(data, dict) else []
+        rows = [
+            {"section": "result", "key": "outcome", "value": result.get("outcome", "UNKNOWN")},
+            {"section": "result", "key": "rule_name", "value": result.get("rule_name", "")},
+            {"section": "result", "key": "exec_at", "value": result.get("exec_at", "")},
+            {"section": "result", "key": "exec_ns", "value": result.get("exec_ns", 0)},
+            {"section": "result", "key": "commit", "value": result.get("commit", "")},
+            {"section": "summary", "key": "errors", "value": len(errors)},
+        ]
+        formatter.output(rows, headers=["section", "key", "value"])
+    else:
+        formatter.output(data)
 
 
 @app.command("execute-rules")
@@ -536,7 +539,9 @@ def execute_rules(
     policies: str = typer.Option(None, "--policies", help="Policy names as comma-separated list"),
     rules: str = typer.Option(None, "--rules", help="Rule names as comma-separated list"),
     tags: str = typer.Option(None, "--tags", help="Device tags as comma-separated list"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Execute compliance rules against devices.
@@ -583,12 +588,16 @@ def execute_rules(
         raise typer.Exit(code=1)
 
     if json_out:
-        if isinstance(data, str):
-            typer.echo(data)
+        format = "json"
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    if isinstance(data, str):
+        # wrap string into a dict for non-table formats
+        if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+            formatter.output([{"result": data}], headers=["result"])
         else:
-            typer.echo(json.dumps(data, indent=2))
+            formatter.output({"result": data})
     else:
-        if isinstance(data, str):
-            typer.echo(f"✓ {data}")
+        if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+            formatter.output([{"status": "ok"}], headers=["status"])
         else:
-            typer.echo("✓ Rules executed successfully")
+            formatter.output(data)

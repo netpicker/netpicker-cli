@@ -1,39 +1,44 @@
-from typing import Optional, List
+from typing import Optional, List, Any
 import json
 import typer
 from tabulate import tabulate
 from ..utils.config import load_settings
-from ..api.client import ApiClient
+from ..utils.logging import get_logger, output_message
+from ..api.client import ApiClient, AsyncApiClient
+import asyncio
 from ..api.errors import ApiError, NotFound
+from ..utils.validation import validate_tag, validate_limit, validate_offset
+from ..utils.output import OutputFormatter, OutputFormat
 
 app = typer.Typer(add_completion=False)
 
 
 @app.callback(invoke_without_command=True)
-def main_callback(ctx: typer.Context):
+def main_callback(ctx: typer.Context) -> None:
     """
     Show available device commands when no subcommand is provided.
     """
     if ctx.invoked_subcommand is None:
-        typer.echo("NetPicker Device Commands:")
-        typer.echo("")
-        typer.echo("Available commands:")
-        typer.echo("  list     List devices with optional filtering")
-        typer.echo("  show     Show a single device's details")
-        typer.echo("  create   Create a new device")
-        typer.echo("  delete   Delete a device")
-        typer.echo("")
-        typer.echo("Examples:")
-        typer.echo("  netpicker devices list")
-        typer.echo("  netpicker devices list --tag production")
-        typer.echo("  netpicker devices show 192.168.1.1")
-        typer.echo("  netpicker devices create --ip 192.168.1.1 --name router01 --platform cisco_ios")
-        typer.echo("")
-        typer.echo("Use 'netpicker devices <command> --help' for more information about a specific command.")
+        output_message("NetPicker Device Commands:")
+        output_message("")
+        output_message("Available commands:")
+        output_message("  list     List devices with optional filtering")
+        output_message("  show     Show a single device's details")
+        output_message("  create   Create a new device")
+        output_message("  delete   Delete a device")
+        output_message("")
+        output_message("Examples:")
+        output_message("  netpicker devices list")
+        output_message("  netpicker devices list --tag production")
+        output_message("  netpicker devices show 192.168.1.1")
+        output_message("  netpicker devices create --ip 192.168.1.1 --name router01 --platform cisco_ios")
+        output_message("")
+        output_message("Use 'netpicker devices <command> --help' for more information about a specific command.")
         raise typer.Exit()
 
 
-def _as_items(data):
+def _as_items(data: Any) -> List[dict]:
+    """Extract items list from API response."""
     if isinstance(data, list):
         return data
     if isinstance(data, dict):
@@ -56,14 +61,23 @@ def _filter_by_tag(items: List[dict], tag: str) -> List[dict]:
 @app.command("list")
 def list_devices(
     tag: Optional[str] = typer.Option(None, "--tag", help="Filter by tag"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
     limit: int = typer.Option(50, "--limit", help="Page size"),
     offset: int = typer.Option(0, "--offset", help="Start offset"),
     all_: bool = typer.Option(False, "--all", help="Fetch all pages"),
+    parallel: int = typer.Option(0, "--parallel", "-p", help="Enable parallel fetch with given concurrency (0=disabled)"),
 ):
     """
     List devices. Supports server pagination via limit/offset and --all to fetch everything.
     """
+    # Validate inputs
+    if tag:
+        validate_tag(tag)
+    validate_limit(limit)
+    validate_offset(offset)
+
     s = load_settings()
     cli = ApiClient(s)
 
@@ -90,25 +104,54 @@ def list_devices(
     if tag:
         # Prefer server-side tag filter
         try:
-            resp = cli.post(
-                f"/api/v1/devices/{s.tenant}/by_tags",
-                json={"tags": [tag], "size": limit, "page": page},
-            ).json()
-            items = extract_items(resp)
-            if all_:
-                # try to keep pulling while pages look full
-                while True:
-                    collected.extend(items)
-                    if len(items) < limit:
-                        break
-                    page += 1
-                    resp = cli.post(
-                        f"/api/v1/devices/{s.tenant}/by_tags",
-                        json={"tags": [tag], "size": limit, "page": page},
-                    ).json()
-                    items = extract_items(resp)
+            # If user requested parallel fetching for all pages, use AsyncApiClient
+            if all_ and parallel and parallel > 0:
+                async def _fetch_all_by_tags():
+                    async_client = AsyncApiClient(s)
+                    results: list[dict] = []
+                    cur_page = page
+                    stop = False
+                    try:
+                        while not stop:
+                            # build a batch of pages
+                            batch_pages = [cur_page + i for i in range(parallel)]
+                            tasks = [async_client.post(f"/api/v1/devices/{s.tenant}/by_tags", json={"tags": [tag], "size": limit, "page": p}) for p in batch_pages]
+                            responses = await asyncio.gather(*tasks, return_exceptions=True)
+                            for resp in responses:
+                                if isinstance(resp, Exception):
+                                    items = []
+                                else:
+                                    items = extract_items(resp.json())
+                                results.extend(items)
+                                if len(items) < limit:
+                                    stop = True
+                                    break
+                            cur_page += parallel
+                    finally:
+                        await async_client.close()
+                    return results
+
+                collected = asyncio.run(_fetch_all_by_tags())
             else:
-                collected = items
+                resp = cli.post(
+                    f"/api/v1/devices/{s.tenant}/by_tags",
+                    json={"tags": [tag], "size": limit, "page": page},
+                ).json()
+                items = extract_items(resp)
+                if all_:
+                    # try to keep pulling while pages look full
+                    while True:
+                        collected.extend(items)
+                        if len(items) < limit:
+                            break
+                        page += 1
+                        resp = cli.post(
+                            f"/api/v1/devices/{s.tenant}/by_tags",
+                            json={"tags": [tag], "size": limit, "page": page},
+                        ).json()
+                        items = extract_items(resp)
+                else:
+                    collected = items
         except Exception:
             # fallback: client-side tag filter on paged list
             payload = page_fetch(page, limit)
@@ -153,24 +196,33 @@ def list_devices(
             collected = items
 
     if json_out:
-        typer.echo(json.dumps(collected, indent=2))
-        return
+        format = "json"
 
-    rows = [
-        [
-            it.get("ipaddress"),
-            it.get("name"),
-            it.get("platform"),
-            ",".join(it.get("tags") or []) if isinstance(it.get("tags"), list) else (it.get("tags") or ""),
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    headers = ["ipaddress", "name", "platform", "tags"]
+    
+    # Map data for table/csv formats to match original headers
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        rows = [
+            {
+                "ipaddress": it.get("ipaddress"),
+                "name": it.get("name"),
+                "platform": it.get("platform"),
+                "tags": ",".join(it.get("tags") or []) if isinstance(it.get("tags"), list) else (it.get("tags") or ""),
+            }
+            for it in collected
         ]
-        for it in collected
-    ]
-    typer.echo(tabulate(rows, headers=["ipaddress", "name", "platform", "tags"]))
+        formatter.output(rows, headers=headers)
+    else:
+        # For JSON/YAML, output the full objects
+        formatter.output(collected)
 
 @app.command("show")
 def show_device(
     ip: str = typer.Argument(..., help="Device IP/FQDN"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Show a single device's details.
@@ -186,27 +238,33 @@ def show_device(
     try:
         resp = cli.get(f"/api/v1/devices/{s.tenant}/{ip}").json()
     except NotFound:
-        typer.echo(f"device '{ip}' not found in tenant '{s.tenant}'")
+        output_message(f"device '{ip}' not found in tenant '{s.tenant}'", "error")
         raise typer.Exit(code=1)
     except ApiError as e:
-        typer.echo(f"API error: {e}")
+        output_message(f"API error: {e}", "error")
         raise typer.Exit(code=1)
     except Exception as e:
-        typer.echo("Unexpected error while contacting the server:")
-        typer.echo(str(e))
+        output_message("Unexpected error while contacting the server:", "error")
+        output_message(str(e), "error")
         raise typer.Exit(code=1)
 
     if json_out:
-        typer.echo(json.dumps(resp, indent=2))
-        return
-    row = [
-        resp.get("ipaddress"),
-        resp.get("name"),
-        resp.get("platform"),
-        ",".join(resp.get("tags", [])) if isinstance(resp.get("tags"), list) else (resp.get("tags") or ""),
-        resp.get("status") or resp.get("state"),
-    ]
-    typer.echo(tabulate([row], headers=["ipaddress", "name", "platform", "tags", "status"]))
+        format = "json"
+
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    headers = ["ipaddress", "name", "platform", "tags", "status"]
+
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+        row = {
+            "ipaddress": resp.get("ipaddress"),
+            "name": resp.get("name"),
+            "platform": resp.get("platform"),
+            "tags": ",".join(resp.get("tags", [])) if isinstance(resp.get("tags"), list) else (resp.get("tags") or ""),
+            "status": resp.get("status") or resp.get("state"),
+        }
+        formatter.output([row], headers=headers)
+    else:
+        formatter.output(resp)
 
 @app.command("create")
 def create_device(
@@ -216,7 +274,9 @@ def create_device(
     port: int = typer.Option(22, "--port", help="SSH port"),
     vault: str = typer.Option(..., "--vault", help="Vault/credential profile name"),
     tags: Optional[str] = typer.Option(None, "--tags", help="Comma-separated tags"),
-    json_out: bool = typer.Option(False, "--json", "--json-out"),
+    json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Create a new device.
@@ -241,16 +301,24 @@ def create_device(
     }
     payload = {k: v for k, v in payload.items() if v not in (None, "", [])}
     data = cli.post(f"/api/v1/devices/{s.tenant}", json=payload).json()
+    
     if json_out:
-        typer.echo(json.dumps(data, indent=2))
-    else:
+        format = "json"
+
+    formatter = OutputFormatter(format=format, output_file=output_file)
+    headers = ["ipaddress", "name", "platform", "tags"]
+
+    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
         item = data if isinstance(data, dict) else {}
-        typer.echo(tabulate([[
-            item.get("ipaddress", ""),
-            item.get("name", ""),
-            item.get("platform", ""),
-            ",".join(item.get("tags", []) or []),
-        ]], headers=["ipaddress", "name", "platform", "tags"]))
+        row = {
+            "ipaddress": item.get("ipaddress", ""),
+            "name": item.get("name", ""),
+            "platform": item.get("platform", ""),
+            "tags": ",".join(item.get("tags", []) or []),
+        }
+        formatter.output([row], headers=headers)
+    else:
+        formatter.output(data)
 
 # ---- Delete wiring for tests expecting .callback / .__wrapped__
 

@@ -2,11 +2,35 @@ import typer
 from .commands import auth, backups, devices, compliance, compliance_policy, automation, ai
 from .commands.health import do_health
 from .commands.whoami import whoami
+from .utils.logging import setup_logging
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
+# Global options
+@app.callback()
+def main_callback(
+    ctx: typer.Context,
+    verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable verbose logging"),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="Suppress non-error output"),
+):
+    """
+    NetPicker CLI - Network device management and automation.
+
+    Use --verbose/-v for detailed debug output.
+    Use --quiet/-q to suppress informational messages.
+    """
+    # Set up logging based on flags
+    logger = setup_logging(verbose=verbose, quiet=quiet)
+
+    # Store logging config in context for commands to access
+    ctx.obj = {
+        "verbose": verbose,
+        "quiet": quiet,
+        "logger": logger
+    }
+
 @app.command("health", help="Check system health and connectivity")
-def health():
+def health(ctx: typer.Context):
     do_health()
 
 app.command("whoami", help="Display current user information")(whoami)

@@ -5,18 +5,25 @@ Provides AI-powered natural language querying and AI service management.
 """
 
 import typer
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 import asyncio
 import subprocess
 import os
 import re
 from netpicker_cli.ai import router as ai_router
 from netpicker_cli.mcp.server import mcp
+from ..utils.output import OutputFormatter, OutputFormat
 
-def run_netpicker_command(args):
+def run_netpicker_command(args: List[str]) -> Dict[str, Any]:
     """
     Run a NetPicker CLI command and return the result.
     Similar to the function in MCP server.
+    
+    Args:
+        args: Command arguments to pass to netpicker CLI
+        
+    Returns:
+        Dictionary with stdout, stderr, returncode, and success status
     """
     try:
         # Set environment variables for NetPicker
@@ -149,7 +156,7 @@ app = typer.Typer(help="AI-powered natural language querying and AI service mana
 
 
 @app.callback(invoke_without_command=True)
-def main_callback(ctx: typer.Context):
+def main_callback(ctx: typer.Context) -> None:
     """
     Show available AI commands when no subcommand is provided.
     """
@@ -176,7 +183,9 @@ def main_callback(ctx: typer.Context):
 def query(
     query: str = typer.Argument(..., help="Natural language query"),
     use_ai: bool = typer.Option(True, "--use-ai/--no-ai", help="Use AI routing (default: True)"),
-    json_output: bool = typer.Option(False, "--json", help="Output in JSON format")
+    json_output: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Query NetPicker using natural language.
@@ -274,15 +283,18 @@ def query(
             response_text = f"Error: {str(e)}"
 
         if json_output:
-            import json
-            output = {
-                "query": query,
-                "tool": tool_name,
-                "result": response_text,
-                "reasoning": reasoning,
-                "used_ai": use_ai
-            }
-            typer.echo(json.dumps(output, indent=2))
+            format = "json"
+        
+        output_data = {
+            "query": query,
+            "tool": tool_name,
+            "result": response_text,
+            "reasoning": reasoning,
+            "used_ai": use_ai
+        }
+        
+        if format != "table" or output_file:
+            OutputFormatter(format=format, output_file=output_file).output(output_data)
         else:
             typer.echo(f"Query: {query}")
             typer.echo(f"Tool: {tool_name}")
@@ -294,7 +306,9 @@ def query(
 
 @app.command("status")
 def status(
-    json_output: bool = typer.Option(False, "--json", help="Output in JSON format")
+    json_output: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     Check AI service status and configuration.
@@ -310,8 +324,10 @@ def status(
         }
 
         if json_output:
-            import json
-            typer.echo(json.dumps(status_info, indent=2))
+            format = "json"
+        
+        if format != "table" or output_file:
+            OutputFormatter(format=format, output_file=output_file).output(status_info)
         else:
             typer.secho("AI Router Status", fg=typer.colors.BLUE, bold=True)
             typer.echo(f"Enabled: {status_info['enabled']}")
@@ -324,7 +340,9 @@ def status(
 
 @app.command("tools")
 def list_tools(
-    json_output: bool = typer.Option(False, "--json", help="Output in JSON format")
+    json_output: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
+    format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
+    output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
     List all available AI-routable tools.
@@ -332,10 +350,15 @@ def list_tools(
     async def _list_tools():
         tools = await mcp.list_tools()
 
+        tool_list = [{"name": t.name, "description": t.description} for t in tools]
+        
         if json_output:
-            import json
-            tool_list = [{"name": t.name, "description": t.description} for t in tools]
-            typer.echo(json.dumps(tool_list, indent=2))
+            format_to_use = "json"
+        else:
+            format_to_use = format
+        
+        if format_to_use != "table" or output_file:
+            OutputFormatter(format=format_to_use, output_file=output_file).output(tool_list)
         else:
             typer.secho("Available Tools", fg=typer.colors.BLUE, bold=True)
             for tool in tools:
