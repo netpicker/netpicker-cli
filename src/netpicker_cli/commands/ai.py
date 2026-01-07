@@ -282,8 +282,10 @@ def query(
         except Exception as e:
             response_text = f"Error: {str(e)}"
 
+        # Handle deprecated --json flag
+        output_format = format
         if json_output:
-            format = "json"
+            output_format = "json"
         
         output_data = {
             "query": query,
@@ -293,8 +295,8 @@ def query(
             "used_ai": use_ai
         }
         
-        if format != "table" or output_file:
-            OutputFormatter(format=format, output_file=output_file).output(output_data)
+        if output_format != "table" or output_file:
+            OutputFormatter(format=output_format, output_file=output_file).output(output_data)
         else:
             typer.echo(f"Query: {query}")
             typer.echo(f"Tool: {tool_name}")
@@ -323,11 +325,13 @@ def status(
             "status": "connected" if available else "unavailable"
         }
 
+        # Handle deprecated --json flag
+        output_format = format
         if json_output:
-            format = "json"
+            output_format = "json"
         
-        if format != "table" or output_file:
-            OutputFormatter(format=format, output_file=output_file).output(status_info)
+        if output_format != "table" or output_file:
+            OutputFormatter(format=output_format, output_file=output_file).output(status_info)
         else:
             typer.secho("AI Router Status", fg=typer.colors.BLUE, bold=True)
             typer.echo(f"Enabled: {status_info['enabled']}")
