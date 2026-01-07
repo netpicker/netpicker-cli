@@ -48,7 +48,7 @@ curl http://localhost:8000/ai/status
 Configure connection to NetPicker server:
 
 ```bash
-export NETPICKER_BASE_URL="https://dev.netpicker.io"
+export NETPICKER_BASE_URL="https://sandbox.netpicker.io"
 export NETPICKER_TENANT="DefaultTenant"
 export NETPICKER_TOKEN="your-jwt-token"
 ```

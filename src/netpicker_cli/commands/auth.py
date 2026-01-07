@@ -98,7 +98,7 @@ class LogoutCommand(TyperCommand):
 
 @app.command("login")
 def login(
-    base_url: str = typer.Option(..., "--base-url", help="API base URL (e.g., https://dev.netpicker.io)"),
+    base_url: str = typer.Option(..., "--base-url", help="API base URL (e.g., https://sandbox.netpicker.io)"),
     tenant: str = typer.Option(..., "--tenant", help="Tenant name (e.g., default)"),
     token: Optional[str] = typer.Option(None, "--token", help="Bearer token"),
 ) -> None:

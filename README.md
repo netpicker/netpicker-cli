@@ -116,10 +116,10 @@ NetPicker CLI provides comprehensive device inventory management capabilities.
 ### Commands
 
 ```bash
-netpicker devices list [--tag TAG] [--json] [--limit N] [--offset M] [--all] [--parallel P]
-netpicker devices show --ip <IP/FQDN> [--json]
-netpicker devices create --ip <IP> [--hostname HOSTNAME] [--platform PLATFORM] [--tags TAGS]
-netpicker devices delete --ip <IP/FQDN> [--force]
+netpicker devices list [--tag TAG] [--format FORMAT] [--limit N] [--offset M] [--all] [--parallel P]
+netpicker devices show <IP/FQDN> [--format FORMAT]
+netpicker devices create <IP> [--name HOSTNAME] [--platform PLATFORM] [--port PORT] [--vault VAULT] [--tags TAGS] [--format FORMAT]
+netpicker devices delete <IP/FQDN> [--force]
 ```
 
 ### Examples
@@ -129,10 +129,10 @@ netpicker devices delete --ip <IP/FQDN> [--force]
 netpicker devices list --limit 10
 
 # Show device details in JSON
-netpicker devices show --ip 192.168.1.1 --json
+netpicker devices show 192.168.1.1 --format json
 
 # Create a new device
-netpicker devices create --ip 10.0.0.1 --hostname router01 --platform cisco_ios --tags "production,core"
+netpicker devices create 10.0.0.1 --name router01 --platform cisco_ios --tags "production,core"
 
 # List devices by tag
 netpicker devices list --tag production
@@ -150,13 +150,13 @@ Manage device configuration backups, compare versions, and search through backup
 ### Commands
 
 ```bash
-netpicker backups recent [--limit N] [--json]                    # Recent backups across all devices
-netpicker backups list --ip <IP/FQDN> [--page N] [--size N] [--all] [--parallel P] [--json]  # List backups for device
-netpicker backups history --ip <IP/FQDN> [--limit N] [--json]    # Backup history for device
-netpicker backups upload --ip <IP/FQDN> --config-file <FILE>     # Upload config backup
-netpicker backups diff [--ip <IP/FQDN>] [--id-a ID] [--id-b ID] [--context N] [--json]
-netpicker backups search [--q TEXT] [--device IP] [--since TS] [--limit N] [--json]
-netpicker backups commands [--platform <name>] [--json]          # Show backup commands for platform
+netpicker backups recent [--limit N] [--format FORMAT]                    # Recent backups across all devices
+netpicker backups list --ip <IP/FQDN> [--page N] [--size N] [--all] [--parallel P] [--format FORMAT]  # List backups for device
+netpicker backups history <IP/FQDN> [--limit N] [--format FORMAT]    # Backup history for device
+netpicker backups upload <IP/FQDN> --file <FILE>     # Upload config backup
+netpicker backups diff [--ip <IP/FQDN>] [--id-a ID] [--id-b ID] [--context N] [--format FORMAT]
+netpicker backups search [--q TEXT] [--device IP] [--since TS] [--limit N] [--format FORMAT]
+netpicker backups commands [--platform <name>] [--format FORMAT]          # Show backup commands for platform
 ```
 
 ### Examples
@@ -172,7 +172,7 @@ netpicker backups diff --ip 192.168.1.1
 netpicker backups search --q "interface GigabitEthernet" --device 192.168.1.1
 
 # Upload a configuration backup
-netpicker backups upload --ip 192.168.1.1 --config-file router-config.txt
+netpicker backups upload 192.168.1.1 --file router-config.txt
 ```
 
 ---
@@ -184,15 +184,15 @@ Create and manage compliance policies with customizable rules for network securi
 ### Commands
 
 ```bash
-netpicker policy list [--json]                                    # List compliance policies
-netpicker policy show --name <NAME> [--json]                      # Show policy details
+netpicker policy list [--format FORMAT]                                    # List compliance policies
+netpicker policy show --name <NAME> [--format FORMAT]                      # Show policy details
 netpicker policy create --name <NAME> [--description DESC]       # Create new policy
 netpicker policy update --name <NAME> [--description DESC]       # Update policy
 netpicker policy replace --name <NAME> --file <FILE>              # Replace policy from file
-netpicker policy add-rule --name <POLICY> --rule-name <NAME> --rule-config <JSON>
+netpicker policy add-rule <POLICY> --name <NAME> [options...]     # Add rule to policy
 netpicker policy remove-rule --name <POLICY> --rule-name <NAME>   # Remove rule from policy
-netpicker policy test-rule --rule-config <JSON> --config-id <ID>  # Test rule against config
-netpicker policy execute-rules --policy <NAME> --config-id <ID>   # Execute all policy rules
+netpicker policy test-rule <POLICY> --name <NAME> --ip <IP> --config <CONFIG> [options...]  # Test rule against config
+netpicker policy execute-rules [--devices <DEVICES>] [--policies <POLICIES>] [--rules <RULES>] [--tags <TAGS>]  # Execute all policy rules
 ```
 
 ### Examples
@@ -205,11 +205,15 @@ netpicker policy list
 netpicker policy create --name security-policy --description "Network security compliance"
 
 # Add a compliance rule
-netpicker policy add-rule --name security-policy --rule-name rule_no_telnet \
-  --rule-config '{"type": "regex", "pattern": "transport input telnet", "negate": true}'
+netpicker policy add-rule security-policy --name rule_no_telnet \
+  --commands '{"show running-config": ["interface *", "line vty *"]}' \
+  --simplified-text "transport input telnet" --simplified-invert
 
 # Test a rule against a configuration
-netpicker policy test-rule --rule-config '{"type": "regex", "pattern": "service password-encryption"}' --config-id 12345
+netpicker policy test-rule security-policy --name rule_no_telnet \
+  --ip 192.168.1.1 --config "interface GigabitEthernet0/1
+line vty 0 4
+ transport input ssh"
 ```
 
 ---
@@ -221,14 +225,14 @@ Run compliance checks against device configurations and generate detailed report
 ### Commands
 
 ```bash
-netpicker compliance overview [--json]                           # Compliance overview
-netpicker compliance report-tenant [--json]                      # Tenant-wide compliance report
-netpicker compliance devices [--ip IP] [--policy POLICY] [--json] # Device compliance status
+netpicker compliance overview [--format FORMAT]                           # Compliance overview
+netpicker compliance report-tenant [--policy POLICY] [--format FORMAT]                      # Tenant-wide compliance report
+netpicker compliance devices [--ip IP] [--policy POLICY] [--format FORMAT] # Device compliance status
 netpicker compliance export [--format FORMAT] [-o FILE]          # Export compliance data
-netpicker compliance status [--policy POLICY] [--json]           # Compliance status summary
-netpicker compliance failures [--limit N] [--json]               # List compliance failures
-netpicker compliance log [--policy POLICY] [--limit N] [--json]  # Compliance check logs
-netpicker compliance report-config --config-id <ID> [--json]      # Config compliance report
+netpicker compliance status [--policy POLICY] [--format FORMAT]           # Compliance status summary
+netpicker compliance failures [--limit N] [--format FORMAT]               # List compliance failures
+netpicker compliance log [--policy POLICY] [--limit N] [--format FORMAT]  # Compliance check logs
+netpicker compliance report-config --config-id <ID> [--format FORMAT]      # Config compliance report
 ```
 
 ### Examples
@@ -238,7 +242,7 @@ netpicker compliance report-config --config-id <ID> [--json]      # Config compl
 netpicker compliance overview
 
 # Generate tenant compliance report
-netpicker compliance report-tenant --json > compliance_report.json
+netpicker compliance report-tenant --format json > compliance_report.json
 
 # Check specific device compliance
 netpicker compliance devices --ip 192.168.1.1
@@ -256,21 +260,21 @@ Execute automation jobs, manage job queues, and monitor automation execution.
 ### Commands
 
 ```bash
-netpicker automation list-fixtures [--json]                       # List available fixtures
-netpicker automation list-jobs [--json]                           # List automation jobs
+netpicker automation list-fixtures [--format FORMAT]                       # List available fixtures
+netpicker automation list-jobs [--pattern PATTERN] [--format FORMAT]                           # List automation jobs
 netpicker automation store-job --name <NAME> --job-config <JSON>  # Store automation job
 netpicker automation store-job-file --name <NAME> --file <FILE>    # Store job from file
-netpicker automation show-job --name <NAME> [--json]               # Show job details
+netpicker automation show-job --name <NAME> [--format FORMAT]               # Show job details
 netpicker automation delete-job --name <NAME> [--force]            # Delete automation job
 netpicker automation test-job --name <NAME> [--fixtures JSON]      # Test automation job
-netpicker automation execute-job --name <NAME> [--fixtures JSON]   # Execute automation job
-netpicker automation logs [--job JOB] [--limit N] [--json]         # View automation logs
-netpicker automation show-log --id <LOG_ID> [--json]               # Show specific log entry
-netpicker automation list-queue [--json]                           # List job queues
+netpicker automation execute-job --name <NAME> [options...]   # Execute automation job
+netpicker automation logs [--job JOB] [--limit N] [--format FORMAT]         # View automation logs
+netpicker automation show-log --id <LOG_ID> [--format FORMAT]               # Show specific log entry
+netpicker automation list-queue [--format FORMAT]                           # List job queues
 netpicker automation store-queue --name <NAME> --queue-config <JSON> # Store job queue
-netpicker automation show-queue --name <NAME> [--json]             # Show queue details
+netpicker automation show-queue --name <NAME> [--format FORMAT]             # Show queue details
 netpicker automation delete-queue --name <NAME> [--force]          # Delete job queue
-netpicker automation review-queue --name <NAME> [--json]           # Review queue status
+netpicker automation review-queue --name <NAME> [--format FORMAT]           # Review queue status
 ```
 
 ### Examples
@@ -419,6 +423,6 @@ MIT License - see LICENSE file for details.
 
 ## 📞 Support
 
-- Documentation: [NetPicker Docs](https://docs.netpicker.io)
+- Documentation: [GitHub Repository](https://github.com/netpicker/netpicker-cli)
 - Issues: [GitHub Issues](https://github.com/netpicker/netpicker-cli/issues)
 - Support: support@netpicker.io

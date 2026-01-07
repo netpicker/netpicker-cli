@@ -31,7 +31,7 @@ def main_callback(ctx: typer.Context) -> None:
         output_message("  netpicker devices list")
         output_message("  netpicker devices list --tag production")
         output_message("  netpicker devices show 192.168.1.1")
-        output_message("  netpicker devices create --ip 192.168.1.1 --name router01 --platform cisco_ios")
+        output_message("  netpicker devices create 192.168.1.1 --name router01 --platform cisco_ios")
         output_message("")
         output_message("Use 'netpicker devices <command> --help' for more information about a specific command.")
         raise typer.Exit()
