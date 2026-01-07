@@ -502,13 +502,9 @@ async def compliance_devices(ip: Optional[str] = None, policy: Optional[str] = N
 
 def main():
     """Main entry point for the MCP server."""
-    mcp.run_stdio_async()
+    import asyncio
+    asyncio.run(mcp.run_stdio_async())
 
 
 if __name__ == "__main__":
     main()
-    asyncio.run(main())
-
-
-if __name__ == "__main__":
-    main_sync()

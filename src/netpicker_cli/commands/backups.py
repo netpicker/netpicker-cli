@@ -308,15 +308,31 @@ def search_configs(
     """
     s = load_settings(); cli = ApiClient(s)
     params = {}
-    if q: params["q"] = q
+    if q: params["search_string"] = q
     if since: params["since"] = since
     if limit: params["limit"] = str(limit)
 
-    # 1) Try server-side search first (if any param supplied; some servers require q)
+    # 1) Try server-side search first (if any param supplied; some servers require search_string)
     try:
-        # Note: some deployments may require "query" instead of "q" (adjust once API spec is confirmed)
         data = cli.get(f"/api/v1/devices/{s.tenant}/search-configs/", params=params).json()
-        items = data.get("items", data if isinstance(data, list) else [])
+        # API returns {"results": [...], "debug_logs": [...]}
+        search_results = data.get("results", [])
+        
+        # Convert search results to the expected format for display
+        items = []
+        for result in search_results:
+            device = result.get("device", {})
+            matches = result.get("matches", [])
+            for match in matches:
+                items.append({
+                    "device": device.get("name", ""),
+                    "ip": device.get("ipaddress", ""),
+                    "line_number": match.get("line_number", 0),
+                    "content": match.get("content", ""),
+                    "config_id": "",  # Not provided in search results
+                    "created_at": "",  # Not provided in search results
+                    "size": 0  # Not provided in search results
+                })
     except Exception:
         # 2) Fallbacks
         q_lower = (q or "").lower()
@@ -360,24 +376,43 @@ def search_configs(
         format = "json"
 
     formatter = OutputFormatter(format=format, output_file=output_file)
-    headers = ["device", "ip", "config_id", "created_at", "size"]
-
-    if format in [OutputFormat.TABLE, OutputFormat.CSV]:
-        def _ts(it): return it.get("created_at") or it.get("upload_date")
-        def _sz(it): return it.get("size") or it.get("file_size")
-        rows = [
-            {
-                "device": it.get("name") or it.get("device"),
-                "ip": it.get("ipaddress"),
-                "config_id": it.get("id") or it.get("config_id"),
-                "created_at": _ts(it),
-                "size": _sz(it)
-            }
-            for it in items
-        ]
-        formatter.output(rows, headers=headers)
+    
+    # Check if we have search results (with line_number and content) or regular config metadata
+    is_search_results = items and "line_number" in items[0]
+    
+    if is_search_results:
+        headers = ["device", "ip", "line_number", "content"]
+        if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+            rows = [
+                {
+                    "device": it.get("device", ""),
+                    "ip": it.get("ip", ""),
+                    "line_number": it.get("line_number", 0),
+                    "content": it.get("content", "")
+                }
+                for it in items
+            ]
+            formatter.output(rows, headers=headers)
+        else:
+            formatter.output(items)
     else:
-        formatter.output(items)
+        headers = ["device", "ip", "config_id", "created_at", "size"]
+        if format in [OutputFormat.TABLE, OutputFormat.CSV]:
+            def _ts(it): return it.get("created_at") or it.get("upload_date")
+            def _sz(it): return it.get("size") or it.get("file_size")
+            rows = [
+                {
+                    "device": it.get("name") or it.get("device"),
+                    "ip": it.get("ipaddress"),
+                    "config_id": it.get("id") or it.get("config_id"),
+                    "created_at": _ts(it),
+                    "size": _sz(it)
+                }
+                for it in items
+            ]
+            formatter.output(rows, headers=headers)
+        else:
+            formatter.output(items)
 
 @app.command("commands")
 def backup_commands(
