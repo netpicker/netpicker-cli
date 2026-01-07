@@ -1,5 +1,5 @@
 """
-AI command for NetPicker CLI
+AI command for Netpicker CLI
 
 Provides AI-powered natural language querying and AI service management.
 """
@@ -16,7 +16,7 @@ from ..utils.output import OutputFormatter, OutputFormat
 
 def run_netpicker_command(args: List[str]) -> Dict[str, Any]:
     """
-    Run a NetPicker CLI command and return the result.
+    Run a Netpicker CLI command and return the result.
     Similar to the function in MCP server.
     
     Args:
@@ -26,7 +26,7 @@ def run_netpicker_command(args: List[str]) -> Dict[str, Any]:
         Dictionary with stdout, stderr, returncode, and success status
     """
     try:
-        # Set environment variables for NetPicker
+        # Set environment variables for Netpicker
         env = os.environ.copy()
 
         # Run the netpicker command using the installed CLI
@@ -161,7 +161,7 @@ def main_callback(ctx: typer.Context) -> None:
     Show available AI commands when no subcommand is provided.
     """
     if ctx.invoked_subcommand is None:
-        typer.echo("NetPicker AI Commands:")
+        typer.echo("Netpicker AI Commands:")
         typer.echo("")
         typer.echo("Available commands:")
         typer.echo("  query    Query NetPicker using natural language")
@@ -188,7 +188,7 @@ def query(
     output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
 ):
     """
-    Query NetPicker using natural language.
+    Query Netpicker using natural language.
 
     Uses AI routing (Mistral) by default, falls back to keyword matching.
     """

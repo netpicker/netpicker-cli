@@ -1,6 +1,6 @@
-# NetPicker CLI
+# Netpicker CLI
 
-A comprehensive command-line interface for NetPicker API — empowering network engineers with powerful automation, compliance management, and device operations through both traditional CLI and AI-assisted workflows.
+A comprehensive command-line interface for Netpicker API — empowering network engineers with powerful automation, compliance management, and device operations through both traditional CLI and AI-assisted workflows.
 
 ## ✨ Key Features
 
@@ -78,7 +78,7 @@ export NETPICKER_QUIET=1             # Suppress informational output
 
 ### Logging & Output Control
 
-NetPicker CLI provides flexible logging and output control:
+Netpicker CLI provides flexible logging and output control:
 
 ```bash
 # Normal output (default)

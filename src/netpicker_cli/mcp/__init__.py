@@ -1,7 +1,7 @@
 """
-NetPicker MCP Server
+Netpicker MCP Server
 
-Model Context Protocol server for NetPicker CLI, enabling AI assistants
+Model Context Protocol server for Netpicker CLI, enabling AI assistants
 to interact with network devices, backups, compliance policies, and automation.
 """
 

@@ -19,7 +19,7 @@ def main_callback(ctx: typer.Context) -> None:
     Show available device commands when no subcommand is provided.
     """
     if ctx.invoked_subcommand is None:
-        output_message("NetPicker Device Commands:")
+        output_message("Netpicker Device Commands:")
         output_message("")
         output_message("Available commands:")
         output_message("  list     List devices with optional filtering")

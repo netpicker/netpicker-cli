@@ -15,7 +15,7 @@ def main_callback(ctx: typer.Context) -> None:
     Show available automation commands when no subcommand is provided.
     """
     if ctx.invoked_subcommand is None:
-        typer.echo("NetPicker Automation Commands:")
+        typer.echo("Netpicker Automation Commands:")
         typer.echo("")
         typer.echo("Available commands:")
         typer.echo("  list-fixtures    List available automation fixtures")

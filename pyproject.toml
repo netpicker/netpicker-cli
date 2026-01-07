@@ -1,7 +1,7 @@
 [project]
 name = "netpicker-cli"
 version = "0.1.1"
-description = "NetPicker CLI for devices and backups"
+description = "Netpicker CLI for devices and backups"
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }

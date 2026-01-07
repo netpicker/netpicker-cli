@@ -1,6 +1,6 @@
-# NetPicker HTTP API Wrapper
+# Netpicker HTTP API Wrapper
 
-Simple HTTP API wrapper around the NetPicker MCP Server, enabling access for language models that don't natively support MCP (like Llama, etc.).
+Simple HTTP API wrapper around the Netpicker MCP Server, enabling access for language models that don't natively support MCP (like Llama, etc.).
 
 With **AI Router integration** for intelligent query routing!
 
@@ -11,7 +11,7 @@ The system is now cleanly separated into:
 - **HTTP API Layer** (`api_server.py`): REST endpoints, request/response handling
 - **AI Router** (`ai/router.py`): Intelligent query routing using Mistral LLM
 - **MCP Server** (`mcp/server.py`): MCP protocol implementation, tool execution
-- **NetPicker CLI** (`commands/*.py`): Core CLI functionality
+- **Netpicker CLI** (`commands/*.py`): Core CLI functionality
 
 ## Features
 
@@ -43,9 +43,9 @@ export USE_MISTRAL="true"
 curl http://localhost:8000/ai/status
 ```
 
-### NetPicker Backend Configuration
+### Netpicker Backend Configuration
 
-Configure connection to NetPicker server:
+Configure connection to Netpicker server:
 
 ```bash
 export NETPICKER_BASE_URL="https://sandbox.netpicker.io"
@@ -79,7 +79,7 @@ Language Model (Llama, etc.)
          ↓
     MCP Server  
          ↓
-  NetPicker CLI
+  Netpicker CLI
 ```
 
 ## API Endpoints
@@ -317,7 +317,7 @@ Set environment variables to configure the API server:
 export MISTRAL_URL="http://192.168.2.155:8000"
 export USE_MISTRAL="true"
 
-# NetPicker configuration (shared with MCP server)
+# Netpicker configuration (shared with MCP server)
 export NETPICKER_BASE_URL="https://your-netpicker-instance.com"
 export NETPICKER_TENANT="your-tenant"
 export NETPICKER_TOKEN="your-api-token"

@@ -1,10 +1,10 @@
-# NetPicker MCP Server Configuration
+# Netpicker MCP Server Configuration
 
-This directory contains the Model Context Protocol (MCP) server for NetPicker CLI.
+This directory contains the Model Context Protocol (MCP) server for Netpicker CLI.
 
 ## Installation
 
-Install NetPicker CLI with MCP support:
+Install Netpicker CLI with MCP support:
 
 ```bash
 pip install netpicker-cli[mcp]
@@ -65,7 +65,7 @@ The MCP server exposes the following tools:
 
 The MCP server requires the following environment variables to be set:
 
-- `NETPICKER_BASE_URL` - NetPicker API base URL
+- `NETPICKER_BASE_URL` - Netpicker API base URL
 - `NETPICKER_TENANT` - Tenant identifier
 - `NETPICKER_TOKEN` - API authentication token
 

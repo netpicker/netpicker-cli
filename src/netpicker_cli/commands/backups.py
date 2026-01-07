@@ -20,7 +20,7 @@ def main_callback(ctx: typer.Context) -> None:
     Show available backup commands when no subcommand is provided.
     """
     if ctx.invoked_subcommand is None:
-        typer.echo("NetPicker Backup Commands:")
+        typer.echo("Netpicker Backup Commands:")
         typer.echo("")
         typer.echo("Available commands:")
         typer.echo("  diff      Diff two configs for a device")
@@ -29,7 +29,7 @@ def main_callback(ctx: typer.Context) -> None:
         typer.echo("  fetch     Fetch a device config blob and save it to disk")
         typer.echo("  search    Search configs across devices")
         typer.echo("  commands  Show backup command templates per platform")
-        typer.echo("  upload    Upload a device config snapshot to NetPicker")
+        typer.echo("  upload    Upload a device config snapshot to Netpicker")
         typer.echo("  history   Show backup history for a device")
         typer.echo("")
         typer.echo("Examples:")
@@ -454,7 +454,7 @@ def upload_config(
     changed: bool = typer.Option(False, "--changed", help="Mark as changed (for pipelines)"),
     json_out: bool = typer.Option(False, "--json", "--json-out"),
 ):
-    """Upload a device config snapshot to NetPicker."""
+    """Upload a device config snapshot to Netpicker."""
     s = load_settings()
     cli = ApiClient(s)
 

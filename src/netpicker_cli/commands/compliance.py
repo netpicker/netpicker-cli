@@ -18,7 +18,7 @@ def main_callback(ctx: typer.Context) -> None:
     Show available compliance commands when no subcommand is provided.
     """
     if ctx.invoked_subcommand is None:
-        typer.echo("NetPicker Compliance Commands:")
+        typer.echo("Netpicker Compliance Commands:")
         typer.echo("")
         typer.echo("Available commands:")
         typer.echo("  overview        Get compliance overview for the tenant")
