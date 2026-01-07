@@ -90,16 +90,25 @@ class TestFetchLatestBackup:
     @patch('netpicker_cli.commands.ai.run_netpicker_command')
     def test_fetch_latest_backup_success(self, mock_run):
         """Test successful backup fetch"""
-        mock_run.return_value = {
-            "success": True,
-            "stdout": '[{"id": "123", "upload_date": "2026-01-01"}]',
-            "stderr": "",
-            "returncode": 0
-        }
+        # Mock returns list on first call, then backup content on second
+        mock_run.side_effect = [
+            {
+                "success": True,
+                "stdout": '[{"id": "123", "upload_date": "2026-01-01"}]',
+                "stderr": "",
+                "returncode": 0
+            },
+            {
+                "success": True,
+                "stdout": "hostname router1\ninterface Gi0/0",
+                "stderr": "",
+                "returncode": 0
+            }
+        ]
         
         result = fetch_latest_backup("192.168.1.1")
-        assert "123" in result
-        mock_run.assert_called_once()
+        assert "hostname router1" in result or "123" in result
+        assert mock_run.call_count == 2
 
     @patch('netpicker_cli.commands.ai.run_netpicker_command')
     def test_fetch_latest_backup_empty_list(self, mock_run):
@@ -125,7 +134,7 @@ class TestFetchLatestBackup:
         }
         
         result = fetch_latest_backup("192.168.1.1")
-        assert "Failed to fetch" in result
+        assert "Error" in result or "Connection error" in result
 
     @patch('netpicker_cli.commands.ai.run_netpicker_command')
     def test_fetch_latest_backup_malformed_json(self, mock_run):

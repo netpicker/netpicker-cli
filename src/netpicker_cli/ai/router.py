@@ -99,6 +99,9 @@ Response:"""
         except Exception as e:
             return None, f"Mistral error: {str(e)}"
 
+        # Safety net: ensure a tuple is always returned
+        return None, "Unknown routing error"
+
 
 class QueryRouterResponse(BaseModel):
     """Response from query routing."""
