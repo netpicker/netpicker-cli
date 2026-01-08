@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/utils/files.py
+# hypothesis_version: 6.150.0
+
+['.', '.np-', 'wb']

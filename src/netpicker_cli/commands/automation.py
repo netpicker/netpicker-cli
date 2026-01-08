@@ -5,6 +5,8 @@ from ..utils.config import load_settings
 from ..api.client import ApiClient
 from ..api.errors import ApiError, NotFound
 from ..utils.output import OutputFormatter, OutputFormat
+from ..utils.helpers import extract_items_from_response, format_tags_for_display
+from ..utils.cache import get_session_cache
 
 app = typer.Typer(add_completion=False)
 
@@ -49,19 +51,24 @@ def list_fixtures(
     json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
     format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
     output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Bypass cache and fetch fresh data"),
 ):
     """
     List available automation fixtures.
 
     Calls GET /api/v1/automation/{tenant}/fixtures to get available fixtures.
     Fixtures are predefined variables that take precedence in job functions.
+    Cache is enabled by default (fixtures are static) unless --no-cache is used.
     Use --json to see the raw response.
     """
     s = load_settings()
     cli = ApiClient(s)
     
     try:
-        data = cli.get(f"/api/v1/automation/{s.tenant}/fixtures").json()
+        cache_key = f"fixtures:{s.tenant}"
+        
+        with get_session_cache(use_cache=not no_cache) as cache:
+            data = cache.get(cache_key, lambda: cli.get(f"/api/v1/automation/{s.tenant}/fixtures").json())
     except NotFound:
         typer.echo("No fixtures found for this tenant.")
         raise typer.Exit(code=1)
@@ -100,23 +107,34 @@ def list_jobs(
     json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
     format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
     output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Bypass cache and fetch fresh data"),
 ):
     """
     List automation jobs.
 
     Calls GET /api/v1/automation/{tenant}/job to get available jobs.
-    Use --pattern to filter jobs by name. Use --json to see the raw response.
+    Use --pattern to filter jobs by name. 
+    Cache is enabled by default (jobs are mostly static) unless --no-cache is used.
+    Use --json to see the raw response.
     """
     s = load_settings()
     cli = ApiClient(s)
     
     # Build URL with optional pattern parameter
     url = f"/api/v1/automation/{s.tenant}/job"
-    if pattern:
-        url += f"?pattern={pattern}"
+    # When pattern is provided, don't use cache (we're filtering)
+    use_cache = not no_cache and pattern is None
+    cache_key = f"jobs:{s.tenant}"
     
     try:
-        data = cli.get(url).json()
+        if use_cache:
+            with get_session_cache(use_cache=True) as cache:
+                data = cache.get(cache_key, lambda: cli.get(url).json())
+        else:
+            # Pattern provided or no-cache requested, fetch fresh
+            if pattern:
+                url += f"?pattern={pattern}"
+            data = cli.get(url).json()
     except NotFound:
         typer.echo("No jobs found for this tenant.")
         raise typer.Exit(code=1)
@@ -725,7 +743,7 @@ def logs(
     if json_out:
         format = "json"
     if format != "table" or output_file:
-        items = data.get("items", []) if isinstance(data, dict) else []
+        items = extract_items_from_response(data)
         rows = [
             {
                 "id": it.get("id", ""),
@@ -941,7 +959,7 @@ def list_queue(
     if json_out:
         format = "json"
     if format != "table" or output_file:
-        items = data.get("items", []) if isinstance(data, dict) else []
+        items = extract_items_from_response(data)
         rows = [
             {
                 "id": it.get("id", ""),
@@ -950,7 +968,7 @@ def list_queue(
                 "submitter": it.get("submitter", ""),
                 "submitted": it.get("submitted", ""),
                 "status": it.get("status", ""),
-                "tags": ", ".join(it.get("tags", []) or []),
+                "tags": format_tags_for_display(it.get("tags")),
                 "devices": ", ".join(it.get("devices", []) or []),
             }
             for it in items

@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/utils/config_extraction.py
+# hypothesis_version: 6.150.0
+
+[255, ',', '-', '.', '\\bvlan-id\\s+(\\d+)', '^\\s*vlan\\s+(\\d+)', 'config_length', 'line_count', 'platform']

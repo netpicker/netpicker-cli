@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/commands/health.py
+# hypothesis_version: 6.150.0
+
+[1000, '/api/v1/status', 'OK', 'UTC', 'api_base', 'response_time_ms', 'scheduler_timezone', 'status', 'timezone', 'tz']

@@ -233,21 +233,12 @@ class TestHelpText:
 class TestCallbackErrorHandling:
     """Test error handling in callback functions"""
 
-    def test_callback_with_invalid_context(self):
-        """Test callback behavior with invalid context"""
-        from netpicker_cli.commands.devices import main_callback
-        from typer import Context
-        
-        # Create invalid context
-        ctx = Context(devices.app)
-        ctx.invoked_subcommand = None
-        
-        # Should handle and show help
-        try:
-            main_callback(ctx)
-        except SystemExit:
-            # Expected to exit
-            pass
+    def test_callback_with_invalid_context(self, runner):
+        """Test callback behavior with invalid context via CLI invocation."""
+        # Invoke devices without subcommand to trigger callback help and exit
+        result = runner.invoke(app, ["devices"]) 
+        assert result.exit_code == 0 or result.exit_code == 1
+        assert "Netpicker Device Commands" in result.output
 
     def test_callback_exception_propagation(self):
         """Test that callback exceptions are properly propagated"""
@@ -278,3 +269,106 @@ class TestCallbackOrdering:
             
             # Command should execute despite parent callback
             assert result is not None
+
+
+# ============================================================================
+# Completion Callbacks (on_success / on_failure)
+# ============================================================================
+
+class TestCompletionCallbacks:
+    """Test on_success and on_failure completion callbacks for compliance checks."""
+
+    @mock.patch("netpicker_cli.commands.compliance.ApiClient.get")
+    @mock.patch("netpicker_cli.commands.compliance.load_settings")
+    def test_on_success_called_after_status_success(self, mock_settings, mock_get):
+        from netpicker_cli.commands import compliance as comp
+        # Arrange: mock settings and API response
+        mock_settings.return_value = mock.MagicMock(
+            base_url="https://api.example.com",
+            tenant="t1",
+            token="tok"
+        )
+        mock_get.return_value = mock.MagicMock(
+            json=lambda: {
+                "ipaddress": "10.0.0.1",
+                "executed": "2026-01-07T00:00:00Z",
+                "summary": {"PASS": 10, "FAIL": 0},
+            }
+        )
+
+        # Spy callback
+        called = {"ok": False, "payload": None}
+        def _on_success(payload):
+            called["ok"] = True
+            called["payload"] = payload
+
+        # Inject callback
+        prev = comp.on_success
+        comp.on_success = _on_success
+        try:
+            runner = CliRunner()
+            result = runner.invoke(app, ["compliance", "status", "10.0.0.1", "--format", "json"])
+            assert result.exit_code == 0
+            # Callback should be called with payload containing summary
+            assert called["ok"] is True
+            assert isinstance(called["payload"], dict)
+            assert called["payload"].get("summary", {}) == {"PASS": 10, "FAIL": 0}
+        finally:
+            comp.on_success = prev
+
+    @mock.patch("netpicker_cli.commands.compliance.ApiClient.get")
+    @mock.patch("netpicker_cli.commands.compliance.load_settings")
+    def test_on_failure_called_on_api_error(self, mock_settings, mock_get):
+        from netpicker_cli.commands import compliance as comp
+        from netpicker_cli.api.errors import ApiError
+        # Arrange: raise API error on GET
+        mock_settings.return_value = mock.MagicMock(
+            base_url="https://api.example.com",
+            tenant="t1",
+            token="tok"
+        )
+        mock_get.side_effect = ApiError("Device Unreachable")
+
+        # Spy failure callback
+        failed = {"ok": False, "err": None}
+        def _on_failure(err):
+            failed["ok"] = True
+            failed["err"] = err
+
+        prev = comp.on_failure
+        comp.on_failure = _on_failure
+        try:
+            runner = CliRunner()
+            result = runner.invoke(app, ["compliance", "status", "10.0.0.2"])
+            # CLI should exit with error and surface message
+            assert result.exit_code != 0
+            assert "API error" in result.output
+            # Callback captured error
+            assert failed["ok"] is True
+            assert isinstance(failed["err"], Exception)
+        finally:
+            comp.on_failure = prev
+
+    @pytest.mark.asyncio
+    async def test_async_callbacks_supported(self, monkeypatch):
+        """If callbacks are async, they should still be invoked."""
+        from netpicker_cli.commands import compliance as comp
+
+        # Prepare async success callback
+        events = {"called": False}
+        async def async_success(payload):
+            events["called"] = True
+
+        # Patch callbacks and dependencies
+        monkeypatch.setattr(comp, "on_success", async_success, raising=True)
+        class _Resp: 
+            def json(self):
+                return {"ipaddress": "1.1.1.1", "summary": {}}
+        monkeypatch.setattr(comp, "load_settings", lambda: mock.MagicMock(tenant="t"), raising=True)
+        monkeypatch.setattr(comp, "ApiClient", lambda s: mock.MagicMock(get=lambda url: _Resp()), raising=True)
+
+        # Invoke command synchronously; internal helper runs async callback
+        runner = CliRunner()
+        result = runner.invoke(app, ["compliance", "status", "1.1.1.1", "--format", "json"])
+        assert result.exit_code == 0
+        assert events["called"] is True

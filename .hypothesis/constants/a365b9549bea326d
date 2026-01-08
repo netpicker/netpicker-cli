@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/commands/auth.py
+# hypothesis_version: 6.150.0
+
+['--base-url', '--tenant', '--token', '/', 'Bearer token', 'Enter API token', 'base_url', 'http://', 'https://', 'login', 'logout', 'netpicker-cli', 'tenant', '✓ credentials saved']

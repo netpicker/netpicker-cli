@@ -7,6 +7,8 @@ from ..api.client import ApiClient
 from ..api.errors import ApiError, NotFound
 from ..utils.output import OutputFormatter, OutputFormat
 from ..utils.cli_helpers import with_client, handle_api_errors
+from ..utils.helpers import ensure_list, safe_dict_get
+from ..utils.cache import get_session_cache
 
 app = typer.Typer(add_completion=False, no_args_is_help=True)
 
@@ -17,20 +19,25 @@ def list_policies(
     json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON"),
     format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
     output_file: Optional[str] = typer.Option(None, "--output", help="Write output to file"),
+    no_cache: bool = typer.Option(False, "--no-cache", help="Bypass cache and fetch fresh data"),
 ):
     """
     List compliance policies.
 
     Calls GET /api/v1/policy/{tenant} and displays available policies.
     Use --json to see the raw response.
+    Cache is enabled by default (policies are static) unless --no-cache is used.
     """
     with with_client() as (s, cli):
-        data = cli.get(f"/api/v1/policy/{s.tenant}").json()
+        cache_key = f"policies:{s.tenant}"
+        
+        with get_session_cache(use_cache=not no_cache) as cache:
+            data = cache.get(cache_key, lambda: cli.get(f"/api/v1/policy/{s.tenant}").json())
 
     if json_out:
         format = "json"
 
-    policies = data if isinstance(data, list) else []
+    policies = ensure_list(data)
     if not policies:
         typer.echo("No policies found.")
         return
@@ -518,8 +525,8 @@ def test_rule(
         format = "json"
     formatter = OutputFormatter(format=format, output_file=output_file)
     if format in [OutputFormat.TABLE, OutputFormat.CSV]:
-        result = data.get("result", {}) if isinstance(data, dict) else {}
-        errors = data.get("errors", []) if isinstance(data, dict) else []
+        result = safe_dict_get(data, "result", {})
+        errors = safe_dict_get(data, "errors", [])
         rows = [
             {"section": "result", "key": "outcome", "value": result.get("outcome", "UNKNOWN")},
             {"section": "result", "key": "rule_name", "value": result.get("rule_name", "")},

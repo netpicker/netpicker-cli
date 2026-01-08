@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/api/client.py
+# hypothesis_version: 6.150.0
+
+[0.3, 0.5, 401, 404, 429, 500, 600, '...', '<unavailable>', 'ApiClient', 'AsyncApiClient', 'DELETE', 'GET', 'PATCH', 'POST', 'Rate limited', 'Resource not found', 'netpicker_cli.api', 'retries exhausted']

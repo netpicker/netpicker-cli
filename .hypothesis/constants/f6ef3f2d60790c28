@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/utils/config.py
+# hypothesis_version: 6.150.0
+
+[30.0, '0', '1', '30', 'Authorization', 'Content-Type', 'NETPICKER_BASE_URL', 'NETPICKER_INSECURE', 'NETPICKER_QUIET', 'NETPICKER_TENANT', 'NETPICKER_TIMEOUT', 'NETPICKER_TOKEN', 'NETPICKER_VERBOSE', 'NETPICKER_VERIFY', 'application/json', 'false', 'netpicker-cli', 'no', 'off', 'on', 'true', 'yes']

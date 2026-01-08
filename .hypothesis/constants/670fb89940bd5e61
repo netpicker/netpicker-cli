@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/mcp/server.py
+# hypothesis_version: 6.150.0
+
+['--changed', '--config-id', '--context', '--description', '--devices', '--file', '--fixtures', '--force', '--id-a', '--id-b', '--ip', '--json', '--limit', '--name', '--platform', '--policy', '--port', '--rule-config', '--tag', '--tags', '--vault', '.txt', 'Device not found', 'HIGH', 'No backups found', 'No devices found', 'No differences found', 'No jobs found', 'No policies found', 'Rule test completed', 'System is healthy', '__main__', 'add-rule', 'automation', 'backups', 'compliance', 'create', 'delete', 'devices', 'diff', 'execute-job', 'health', 'history', 'list', 'list-jobs', 'netpicker', 'netpicker-mcp', 'overview', 'pattern', 'policy', 'regex', 'report-tenant', 'returncode', 'show', 'stderr', 'stdout', 'success', 'test', 'test-rule', 'type', 'upload', 'w']

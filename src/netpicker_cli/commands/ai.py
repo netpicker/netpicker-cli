@@ -13,6 +13,7 @@ import re
 from netpicker_cli.ai import router as ai_router
 from netpicker_cli.mcp.server import mcp
 from ..utils.output import OutputFormatter, OutputFormat
+from ..utils.helpers import extract_ip_from_text, extract_number_from_text, extract_tag_from_text
 
 def run_netpicker_command(args: List[str]) -> Dict[str, Any]:
     """
@@ -81,18 +82,15 @@ def extract_parameters(query: str) -> Dict[str, Any]:
         r'\blast\s+(\d+)\b',      # "last 5"
         r'\blimit\s+(\d+)\b',     # "limit 2"
     ]
-
-    for pattern in limit_patterns:
-        match = re.search(pattern, query, re.IGNORECASE)
-        if match:
-            params['limit'] = int(match.group(1))
-            break
+    
+    limit = extract_number_from_text(query, limit_patterns)
+    if limit:
+        params['limit'] = limit
 
     # Extract IP addresses for device-specific queries
-    ip_pattern = r'\b(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\b'
-    match = re.search(ip_pattern, query)
-    if match:
-        params['ip'] = match.group(1)
+    ip = extract_ip_from_text(query)
+    if ip:
+        params['ip'] = ip
 
     # Extract tags (more flexible patterns)
     tag_patterns = [
@@ -100,12 +98,10 @@ def extract_parameters(query: str) -> Dict[str, Any]:
         r'\bwith\s+tag\s+([a-z0-9_-]+)\b',  # "with tag foo"
         r'\bfor\s+tag\s+([a-z0-9_-]+)\b',   # "for tag foo"
     ]
-
-    for pattern in tag_patterns:
-        match = re.search(pattern, query, re.IGNORECASE)
-        if match:
-            params['tag'] = match.group(1)
-            break
+    
+    tag = extract_tag_from_text(query, tag_patterns)
+    if tag:
+        params['tag'] = tag
 
     return params
 

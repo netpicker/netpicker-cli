@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/commands/whoami.py
+# hypothesis_version: 6.150.0
+
+['--format', '--json', '--json-out', '--output', '.', '===', 'NETPICKER_TOKEN', 'Write output to file', 'base_url', 'claim', 'claims', 'email', 'exp', 'json', 'netpicker-cli', 'scopes', 'sub', 'table', 'tenant', 'token_expires', 'utf-8']

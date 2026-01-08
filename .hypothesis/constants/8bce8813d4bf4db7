@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/cli.py
+# hypothesis_version: 6.150.0
+
+['--quiet', '--verbose', '-q', '-v', 'Automation commands', 'ai', 'auth', 'automation', 'backups', 'compliance', 'devices', 'health', 'logger', 'policy', 'quiet', 'verbose', 'whoami']

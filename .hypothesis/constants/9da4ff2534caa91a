@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/utils/output.py
+# hypothesis_version: 6.150.0
+
+['csv', 'json', 'table', 'utf-8', 'w', 'yaml']

@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/commands/devices.py
+# hypothesis_version: 6.150.0
+
+[1000, ',', '--all', '--force', '--format', '--json', '--json-out', '--limit', '--name', '--offset', '--output', '--parallel', '--platform', '--port', '--tag', '--tags', '--vault', '-f', '-p', 'Available commands:', 'Comma-separated tags', 'Device IP/FQDN', 'Examples:', 'Fetch all pages', 'Filter by tag', 'Friendly name', 'IP or hostname', 'Page size', 'SSH port', 'Start offset', 'Write output to file', 'aborted.', 'create', 'delete', 'deleted', 'error', 'ipaddress', 'items', 'json', 'list', 'name', 'not found', 'page', 'platform', 'port', 'show', 'size', 'state', 'status', 'table', 'tags', 'vault']

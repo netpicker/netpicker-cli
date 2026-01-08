@@ -153,6 +153,72 @@ class TestAIQueryRouting:
                 args = run_mock.call_args[0][0]
                 assert args[:2] == ["policy", "add-rule"]
 
+    def test_ai_compliance_overview_invocation(self, runner):
+        """Intent for compliance overview should map correctly."""
+        from unittest.mock import patch, AsyncMock
+        with patch(
+            "netpicker_cli.commands.ai.ai_router.route_query",
+            new=AsyncMock(return_value=("compliance_overview", "overview")),
+        ):
+            with patch(
+                "netpicker_cli.commands.ai.run_netpicker_command",
+                return_value={"stdout": "OK", "stderr": "", "returncode": 0, "success": True},
+            ) as run_mock:
+                result = runner.invoke(app, ["ai", "query", "show compliance overview", "--format", "json"])
+                assert result.exit_code == 0
+                args = run_mock.call_args[0][0]
+                assert args[:2] == ["compliance", "overview"]
+
+    def test_ai_compliance_report_tenant_invocation(self, runner):
+        """Intent for compliance report-tenant should map correctly."""
+        from unittest.mock import patch, AsyncMock
+        with patch(
+            "netpicker_cli.commands.ai.ai_router.route_query",
+            new=AsyncMock(return_value=("compliance_report_tenant", "report")),
+        ):
+            with patch(
+                "netpicker_cli.commands.ai.run_netpicker_command",
+                return_value={"stdout": "OK", "stderr": "", "returncode": 0, "success": True},
+            ) as run_mock:
+                result = runner.invoke(app, ["ai", "query", "tenant compliance report", "--format", "json"])
+                assert result.exit_code == 0
+                args = run_mock.call_args[0][0]
+                assert args[:2] == ["compliance", "report-tenant"]
+
+    def test_ai_keyword_fallback_when_ai_none(self, runner):
+        """If AI returns no tool, fallback to keyword matching path."""
+        from unittest.mock import patch, AsyncMock
+        with patch(
+            "netpicker_cli.commands.ai.ai_router.route_query",
+            new=AsyncMock(return_value=(None, "error")),
+        ):
+            # The ai.query function imports find_tool_by_keywords lazily; patch at module where it's referenced
+            with patch("netpicker_cli.api_server.find_tool_by_keywords", return_value="devices_list"):
+                with patch(
+                    "netpicker_cli.commands.ai.run_netpicker_command",
+                    return_value={"stdout": "OK", "stderr": "", "returncode": 0, "success": True},
+                ) as run_mock:
+                    result = runner.invoke(app, ["ai", "query", "list devices", "--format", "json"])
+                    assert result.exit_code == 0
+                    args = run_mock.call_args[0][0]
+                    assert args[:2] == ["devices", "list"]
+
+    def test_ai_run_command_failure_message(self, runner):
+        """If command execution fails, the error should surface in output."""
+        from unittest.mock import patch, AsyncMock
+        with patch(
+            "netpicker_cli.commands.ai.ai_router.route_query",
+            new=AsyncMock(return_value=("devices_list", "devices")),
+        ):
+            with patch(
+                "netpicker_cli.commands.ai.run_netpicker_command",
+                return_value={"stdout": "", "stderr": "Internal error", "returncode": 1, "success": False},
+            ):
+                result = runner.invoke(app, ["ai", "query", "list devices", "--format", "json"])
+                assert result.exit_code == 0
+                # JSON output path prints via OutputFormatter; just check stderr surfaced via "Command failed"
+                assert "Command failed" in result.stdout
+
     @respx.mock
     def test_ai_query_with_parameters(self, runner, mock_settings):
         """Test AI query with extracted parameters"""

@@ -34,7 +34,7 @@ class TestEmptyResponses:
     @respx.mock
     def test_empty_device_list(self, runner, mock_settings):
         """Test handling empty device list response"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             json={"items": []}
         )
 
@@ -287,7 +287,7 @@ class TestPaginationEdgeCases:
     @respx.mock
     def test_pagination_with_zero_items(self, runner, mock_settings):
         """Test pagination when total is zero"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant", params={"size": 50, "page": 1}).respond(
             json={"items": [], "total": 0, "page": 1, "size": 50}
         )
 
@@ -299,7 +299,7 @@ class TestPaginationEdgeCases:
     @respx.mock
     def test_pagination_missing_metadata(self, runner, mock_settings):
         """Test pagination with missing metadata"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant", params={"size": 50, "page": 1}).respond(
             json={"items": [{"name": "router1"}]}  # No pagination metadata
         )
 
@@ -312,7 +312,7 @@ class TestPaginationEdgeCases:
     @respx.mock
     def test_pagination_invalid_page_number(self, runner, mock_settings):
         """Test pagination with invalid page number"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant", params={"size": 50, "page": 1}).respond(
             json={"items": [], "total": 100, "page": -1, "size": 50}
         )
 
@@ -329,7 +329,7 @@ class TestOutputFormatEdgeCases:
     @respx.mock
     def test_csv_output_with_special_characters(self, runner, mock_settings):
         """Test CSV output with special characters"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant", params={"size": 50, "page": 1}).respond(
             json={"items": [{"name": "router,with,commas", "ipaddress": "192.168.1.1"}]}
         )
 
@@ -342,7 +342,7 @@ class TestOutputFormatEdgeCases:
     @respx.mock
     def test_yaml_output_with_unicode(self, runner, mock_settings):
         """Test YAML output with unicode characters"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant", params={"size": 50, "page": 1}).respond(
             json={"items": [{"name": "路由器", "ipaddress": "192.168.1.1"}]}
         )
 
@@ -355,7 +355,7 @@ class TestOutputFormatEdgeCases:
     def test_table_output_with_very_long_values(self, runner, mock_settings):
         """Test table output with very long field values"""
         long_name = "x" * 500
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant", params={"size": 50, "page": 1}).respond(
             json={"items": [{"name": long_name, "ipaddress": "192.168.1.1"}]}
         )
 

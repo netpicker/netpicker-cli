@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/utils/helpers.py
+# hypothesis_version: 6.150.0
+
+[',', '^[a-zA-Z0-9._-]+$', 'items', 'tags', 'value']

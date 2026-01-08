@@ -7,6 +7,37 @@ from ..api.client import ApiClient, AsyncApiClient
 import asyncio
 from ..api.errors import ApiError
 from ..utils.output import OutputFormatter, OutputFormat
+from ..utils.helpers import extract_items_from_response, safe_dict_get
+from inspect import iscoroutinefunction, isawaitable
+import threading as _threading
+
+# Optional callbacks for completion hooks
+on_success = None  # type: ignore[assignment]
+on_failure = None  # type: ignore[assignment]
+
+def _invoke_callback(cb, *args, **kwargs) -> None:
+    """Invoke a callback if provided, supporting sync or async callables."""
+    if cb is None:
+        return
+    try:
+        def _run_coro(coro):
+            import asyncio as _asyncio
+            try:
+                _asyncio.get_running_loop()
+                t = _threading.Thread(target=lambda: _asyncio.run(coro))
+                t.start(); t.join()
+            except RuntimeError:
+                _asyncio.run(coro)
+
+        if iscoroutinefunction(cb):
+            _run_coro(cb(*args, **kwargs))
+        else:
+            result = cb(*args, **kwargs)
+            if isawaitable(result):
+                _run_coro(result)
+    except Exception:
+        # Swallow callback exceptions to avoid breaking primary command flow
+        pass
 from ..utils.output import OutputFormatter, OutputFormat
 
 app = typer.Typer(add_completion=False)
@@ -175,7 +206,7 @@ def tenant_report(
                                 items = []
                             else:
                                 data = resp.json()
-                                items = data.get("items") if isinstance(data, dict) else data
+                                items = extract_items_from_response(data)
                             if not items:
                                 stop = True
                                 break
@@ -196,11 +227,11 @@ def tenant_report(
             all_items = []
             while True:
                 data = _fetch(cur)
-                items = data.get("items") if isinstance(data, dict) else data
+                items = extract_items_from_response(data)
                 if not items:
                     break
                 all_items.extend(items)
-                pages = data.get("pages") if isinstance(data, dict) else None
+                pages = safe_dict_get(data, "pages", None)
                 if pages and cur >= pages:
                     break
                 cur += 1
@@ -328,7 +359,7 @@ def policy_devices(
                                 items = []
                             else:
                                 data = resp.json()
-                                items = data.get("items") if isinstance(data, dict) else data
+                                items = extract_items_from_response(data)
                             if not items:
                                 stop = True
                                 break
@@ -349,18 +380,18 @@ def policy_devices(
             all_items = []
             while True:
                 data = _fetch(cur)
-                items = data.get("items") if isinstance(data, dict) else data
+                items = extract_items_from_response(data)
                 if not items:
                     break
                 all_items.extend(items)
-                pages = data.get("pages") if isinstance(data, dict) else None
+                pages = safe_dict_get(data, "pages", None)
                 if pages and cur >= pages:
                     break
                 cur += 1
             items = all_items
         else:
             data = _fetch(page)
-            items = data if isinstance(data, list) else data.get("items", [])
+            items = extract_items_from_response(data)
     except ApiError as e:
         typer.echo(f"API error: {e}")
         raise typer.Exit(code=1)
@@ -487,9 +518,11 @@ def device_status(
         resp = cli.get(f"/api/v1/compliance/{s.tenant}/status/{ipaddress}")
     except ApiError as e:
         typer.echo(f"API error: {e}")
+        _invoke_callback(on_failure, e)
         raise typer.Exit(code=1)
     except Exception as e:
         typer.echo(f"Unexpected error: {e}")
+        _invoke_callback(on_failure, e)
         raise typer.Exit(code=1)
 
     # parse JSON safely
@@ -513,11 +546,13 @@ def device_status(
                 fh.write(str(data))
         else:
             typer.echo(str(data))
+        _invoke_callback(on_success, data)
         return
 
     if not isinstance(data, dict):
         formatter = OutputFormatter(format=format, output_file=output_file)
         formatter.output(data)
+        _invoke_callback(on_success, data)
         return
 
     ip = data.get("ipaddress") or ipaddress
@@ -536,8 +571,14 @@ def device_status(
                 rows.append({"section": "summary", "key": k, "value": v})
         headers = ["section", "key", "value"]
         formatter.output(rows, headers=headers)
+        _invoke_callback(on_success, {
+            "ipaddress": ip,
+            "executed": executed,
+            "summary": summary,
+        })
     else:
         formatter.output(data)
+        _invoke_callback(on_success, data)
 
 
 @app.command("failures")

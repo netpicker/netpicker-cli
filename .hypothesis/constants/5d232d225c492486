@@ -1,0 +1,4 @@
+# file: /home/sanps/gits/netpicker-cli/src/netpicker_cli/utils/validation.py
+# hypothesis_version: 6.150.0
+
+[100, 200, 253, 254, 1000, 2000, 65535, ',', '.', 'Duplicate tags found', 'Port', 'Tag cannot be empty', 'URL cannot be empty', '^[a-zA-Z0-9._-]+$', '^[a-zA-Z0-9._/-]+$', 'limit', 'value']

@@ -10,6 +10,7 @@ import asyncio
 from ..utils.files import atomic_write
 import difflib
 from ..utils.output import OutputFormatter, OutputFormat
+from ..utils.helpers import extract_items_from_response
 
 app = typer.Typer(add_completion=False)
 
@@ -42,15 +43,6 @@ def main_callback(ctx: typer.Context) -> None:
         raise typer.Exit()
 
 
-def _as_items(data: Any) -> List[dict]:
-    """Extract items list from API response."""
-    if isinstance(data, list):
-        return data
-    if isinstance(data, dict):
-        return data.get("items", [])
-    return []
-
-
 @app.command("diff")
 def diff_configs(
     ip: str = typer.Option(..., "--ip", help="Device IP/hostname"),
@@ -76,7 +68,7 @@ def diff_configs(
     # Resolve IDs if not supplied
     if not id_a or not id_b:
         data = cli.get(f"/api/v1/devices/{s.tenant}/{ip}/configs", params={"limit": 2}).json()
-        items = data if isinstance(data, list) else data.get("items", [])
+        items = extract_items_from_response(data)
         if len(items) < 2:
             typer.secho("Not enough configs to diff (need at least 2).", fg=typer.colors.RED)
             raise typer.Exit(code=2)
@@ -148,7 +140,7 @@ def recent(
     s = load_settings()
     cli = ApiClient(s)
     data = cli.get(f"/api/v1/devices/{s.tenant}/recent-configs/", params={"limit": limit}).json()
-    items = _as_items(data)
+    items = extract_items_from_response(data)
     
     if json_out:
         format = "json"
@@ -217,7 +209,7 @@ def list_configs(
                                 items = []
                             else:
                                 data = resp.json()
-                                items = _as_items(data)
+                                items = extract_items_from_response(data)
                             if len(items) < size:
                                 stop = True
                             all_items.extend(items)
@@ -232,7 +224,7 @@ def list_configs(
             all_items = []
             while True:
                 data = _fetch(cur)
-                items = _as_items(data)
+                items = extract_items_from_response(data)
                 all_items.extend(items)
                 if len(items) < size:
                     break
@@ -240,7 +232,7 @@ def list_configs(
             items = all_items
         else:
             data = _fetch(page)
-            items = _as_items(data)
+            items = extract_items_from_response(data)
     except Exception as e:
         typer.echo(f"Error: {e}")
         raise typer.Exit(1)
@@ -356,7 +348,7 @@ def search_configs(
         if device or scope == "device":
             # search within a single device’s configs
             resp = cli.get(f"/api/v1/devices/{s.tenant}/{device}/configs", params={"limit": limit}).json()
-            src = resp.get("items", resp if isinstance(resp, list) else [])
+            src = extract_items_from_response(resp)
             for it in src:
                 if _match(it):
                     items.append(it)
@@ -365,7 +357,7 @@ def search_configs(
         else:
             # search recent configs across all devices
             resp = cli.get(f"/api/v1/devices/{s.tenant}/recent-configs/", params={"limit": max(limit, 100)}).json()
-            src = resp.get("items", resp if isinstance(resp, list) else [])
+            src = extract_items_from_response(resp)
             for it in src:
                 if _match(it):
                     items.append(it)
