@@ -324,8 +324,8 @@ netpicker compliance devices
 # List devices with specific policy compliance
 netpicker compliance devices --policy security-policy
 
-# Check compliance for a specific device and policy
-netpicker compliance devices --ip 192.168.1.1
+# Check compliance for a specific device
+netpicker compliance devices --ipaddress 192.168.1.1
 
 # View compliance failures (most recent)
 netpicker compliance failures --limit 20
