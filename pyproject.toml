@@ -1,6 +1,6 @@
 [project]
 name = "netpicker-cli"
-version = "0.1.7"
+version = "0.1.8"
 description = "Netpicker CLI for devices and backups"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -51,9 +51,6 @@ dev = [
   "black>=24",
   "mypy>=1.11",
   "types-tabulate>=0.9.0.20240106",
-]
-mcp = [
-  "mcp>=1.0.0",
 ]
 
 [tool.ruff]

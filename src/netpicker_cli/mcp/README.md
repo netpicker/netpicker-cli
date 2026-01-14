@@ -7,7 +7,7 @@ This directory contains the Model Context Protocol (MCP) server for Netpicker CL
 Install Netpicker CLI with MCP support:
 
 ```bash
-pip install netpicker-cli[mcp]
+pip install netpicker-cli
 ```
 
 ## Usage

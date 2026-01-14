@@ -18,7 +18,7 @@ A comprehensive command-line interface for Netpicker API — empowering network 
 ### Production Install
 
 ```bash
-pip install netpicker-cli[mcp]
+pip install netpicker-cli
 ```
 
 ### Development Install
@@ -27,7 +27,7 @@ pip install netpicker-cli[mcp]
 git clone <repository-url>
 cd netpicker-cli
 python -m venv venv && source venv/bin/activate
-pip install -e ".[dev,mcp]"
+pip install -e ".[dev]"
 ```
 
 > **Linux Keyring Note**: If you encounter keyring issues on Linux, install the alternative backend:
@@ -436,8 +436,8 @@ NetPicker CLI includes a built-in MCP server that enables AI assistants like Cla
 #### Quick MCP Setup
 
 ```bash
-# Install with MCP support
-pip install -e ".[mcp]"
+# Install netpicker-cli
+pip install netpicker-cli
 
 # Configure for Claude Desktop
 # Add to your claude_desktop_config.json:
@@ -530,7 +530,7 @@ Once configured, you can ask Claude things like:
 git clone <repository-url>
 cd netpicker-cli
 python -m venv venv && source venv/bin/activate
-pip install -e ".[dev,mcp]"
+pip install -e ".[dev]"
 pytest  # Run tests
 ruff check .  # Lint code
 black .      # Format code
