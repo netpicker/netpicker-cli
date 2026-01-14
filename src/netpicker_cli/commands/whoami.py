@@ -38,9 +38,17 @@ class WhoamiCommand(TyperCommand):
         s = load_settings()
 
         # Re-obtain token the same way Settings.auth_headers() does (env > keyring)
-        token = s.token or os.environ.get("NETPICKER_TOKEN") or keyring.get_password(
-            "netpicker-cli", f"{s.base_url}:{s.tenant}"
-        )
+        token = s.token or os.environ.get("NETPICKER_TOKEN")
+        
+        if token is None:
+            # Try keyring if available, but don't crash if it's missing
+            try:
+                token = keyring.get_password(
+                    "netpicker-cli", f"{s.base_url}:{s.tenant}"
+                )
+            except Exception:
+                # NoKeyringError or other keyring issues - gracefully skip
+                token = None
 
         claims = self._decode_jwt_unverified(token or "")
 

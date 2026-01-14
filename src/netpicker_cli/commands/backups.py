@@ -34,9 +34,9 @@ def main_callback(ctx: typer.Context) -> None:
         typer.echo("  history   Show backup history for a device")
         typer.echo("")
         typer.echo("Examples:")
-        typer.echo("  netpicker backups list --ip 192.168.1.1")
-        typer.echo("  netpicker backups fetch --ip 192.168.1.1 --id <config-id>")
-        typer.echo("  netpicker backups diff --ip 192.168.1.1")
+        typer.echo("  netpicker backups list 192.168.1.1")
+        typer.echo("  netpicker backups fetch 192.168.1.1 --id <config-id>")
+        typer.echo("  netpicker backups diff 192.168.1.1")
         typer.echo("  netpicker backups recent")
         typer.echo("")
         typer.echo("Use 'netpicker backups <command> --help' for more information about a specific command.")
@@ -45,9 +45,9 @@ def main_callback(ctx: typer.Context) -> None:
 
 @app.command("diff")
 def diff_configs(
-    ip: str = typer.Option(..., "--ip", help="Device IP/hostname"),
-    id_a: str = typer.Option("", "--id-a", help="(Optional) older config id; requires --ip"),
-    id_b: str = typer.Option("", "--id-b", help="(Optional) newer config id; requires --ip"),
+    ip: str = typer.Argument(..., help="Device IP/hostname"),
+    id_a: str = typer.Option("", "--id-a", help="(Optional) older config id"),
+    id_b: str = typer.Option("", "--id-b", help="(Optional) newer config id"),
     context: int = typer.Option(3, "--context", help="Unified diff context lines"),
     json_out: bool = typer.Option(False, "--json", "--json-out", help="[DEPRECATED: use --format json] Output JSON with diff lines"),
     format: str = typer.Option("table", "--format", help="Output format: table, json, csv, yaml"),
@@ -56,7 +56,7 @@ def diff_configs(
     """
     Diff two configs for a device.
     - If --id-a/--id-b are omitted: diff the two most recent configs.
-    - If --id-a/--id-b are provided: both must be present (and --ip is required).
+    - If --id-a/--id-b are provided: both must be present.
     """
     s = load_settings()
     cli = ApiClient(s)
@@ -169,7 +169,7 @@ def recent(
 
 @app.command("list")
 def list_configs(
-    ip: str = typer.Option(..., "--ip", help="Device IP/FQDN"),
+    ip: str = typer.Argument(..., help="Device IP/FQDN"),
     limit: int = 20,
     page: int = typer.Option(1, "--page", help="Page number (1-based)"),
     size: int = typer.Option(50, "--size", help="Page size"),
@@ -262,7 +262,7 @@ def list_configs(
 
 @app.command("fetch")
 def fetch(
-    ip: str = typer.Option(..., "--ip"),
+    ip: str = typer.Argument(..., help="Device IP/hostname"),
     id: str = typer.Option(..., "--id"),
     output: Path = typer.Option(Path("."), "--output", "-o", help="Directory to save file"),
 ):
@@ -485,9 +485,9 @@ def history(
     Show backup history for a device.
 
     Example:
-      netpicker backups history 192.168.60.194
+      netpicker backups history 192.168.1.1
 
-      netpicker backups history 192.168.60.194 --json
+      netpicker backups history 192.168.1.1 --json
     """
     s = load_settings()
     cli = ApiClient(s)

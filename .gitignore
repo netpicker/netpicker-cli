@@ -6,16 +6,29 @@ __pycache__/
 *.egg-info/
 .dist/
 .build/
+dist/
+build/
 .python-version
 venv/
 .env
+.env.*
 .coverage
 htmlcov/
 .mypy_cache/
 .pytest_cache/
+.hypothesis/
+.ruff_cache/
 
 # editor/OS
 .DS_Store
 .idea/
 .vscode/
+
+# Sensitive data - DO NOT COMMIT
 backups/
+*.cfg
+hostname_search.json
+sample.json
+
+# Test artifacts
+test_mistral_integration.py

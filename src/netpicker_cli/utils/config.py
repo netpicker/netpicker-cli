@@ -29,14 +29,13 @@ class Settings:
             # Try keyring if available, but don't crash if it's missing.
             try:
                 import keyring  # type: ignore
+                token = keyring.get_password("netpicker-cli", f"{self.base_url}:{self.tenant}")
             except Exception:
+                # NoKeyringError, ImportError, or other keyring issues - gracefully continue
                 keyring = None
 
-            if keyring:
-                token = keyring.get_password("netpicker-cli", f"{self.base_url}:{self.tenant}")
-
         if not token:
-            raise SystemExit("No token found. Run: netpicker login --base-url ... --token ...")
+            raise SystemExit("No token found. Run: netpicker auth login --base-url <URL> --tenant <TENANT> --token <TOKEN>")
 
         return {
             "Authorization": f"Bearer {token}",

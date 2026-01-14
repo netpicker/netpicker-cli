@@ -2,7 +2,7 @@
 """
 Test script for NetPicker API with Mistral integration.
 
-This demonstrates how to use the HTTP API with your Mistral LLM running on 192.168.1.155:8000
+This demonstrates how to use the HTTP API with your local Mistral LLM server.
 """
 
 import asyncio
@@ -12,7 +12,7 @@ from typing import Optional
 
 # Configuration
 API_URL = "http://localhost:8001"
-MISTRAL_URL = "http://192.168.2.155:8000"
+MISTRAL_URL = "http://localhost:8000"
 
 
 async def check_mistral():

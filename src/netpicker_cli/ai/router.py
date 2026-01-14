@@ -16,7 +16,7 @@ class QueryRouter:
     """AI-powered query router using Mistral LLM."""
 
     def __init__(self, mistral_url: Optional[str] = None):
-        self.mistral_url = mistral_url or os.getenv("MISTRAL_URL", "http://192.168.2.155:8000")
+        self.mistral_url = mistral_url or os.getenv("MISTRAL_URL", "http://localhost:8000")
         self.enabled = os.getenv("USE_MISTRAL", "true").lower() == "true"
 
     async def is_available(self) -> bool:

@@ -458,7 +458,7 @@ def sample_devices():
 
 #### 1. "No token found" Error
 
-**Symptom**: `No token found. Run: netpicker login --base-url ... --token ...`
+**Symptom**: `No token found. Run: netpicker auth login --base-url <URL> --tenant <TENANT> --token <TOKEN>`
 
 **Causes & Solutions**:
 | Cause | Solution |

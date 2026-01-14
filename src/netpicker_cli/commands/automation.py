@@ -394,7 +394,8 @@ def show_job(
             for i, line in enumerate(lines, 1):
                 typer.echo(f"    {i:2d}: {line}")
             if len(content.split('\n')) > 10:
-                typer.echo(f"    ... ({len(content.split('\n')) - 10} more lines)")
+                line_count = len(content.splitlines()) - 10
+                typer.echo(f"    ... ({line_count} more lines)")
             typer.echo()
 
 
@@ -807,8 +808,8 @@ def logs(
             for line in lines:
                 typer.echo(f"  {line}")
             if len(log.split('\n')) > 10:
-                typer.echo(f"  ... ({len(log.split('\n')) - 10} more lines)")
-        
+                line_count = len(content.splitlines()) - 10
+                typer.echo(f"    ... ({line_count} more lines)")
         typer.echo("-" * 50)
 
 
@@ -1246,7 +1247,8 @@ def show_queue(
             for i, line in enumerate(lines, 1):
                 typer.echo(f"    {i:2d}: {line}")
             if len(content.split('\n')) > 10:
-                typer.echo(f"    ... ({len(content.split('\n')) - 10} more lines)")
+                line_count = len(content.splitlines()) - 10
+                typer.echo(f"    ... ({line_count} more lines)")
             typer.echo()
 
 

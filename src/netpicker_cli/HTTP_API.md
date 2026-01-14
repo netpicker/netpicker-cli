@@ -36,7 +36,7 @@ Point the AI router to your Mistral instance:
 
 ```bash
 # Environment variables
-export MISTRAL_URL="http://192.168.2.155:8000"
+export MISTRAL_URL="http://localhost:8000"
 export USE_MISTRAL="true"
 
 # Check AI router status
@@ -60,7 +60,7 @@ export NETPICKER_TOKEN="your-jwt-token"
 netpicker-api
 
 # Option 2: With environment variables
-MISTRAL_URL="http://192.168.2.155:8000" USE_MISTRAL="true" netpicker-api
+MISTRAL_URL="http://localhost:8000" USE_MISTRAL="true" netpicker-api
 
 # Option 3: With Uvicorn and custom settings
 uvicorn netpicker_cli.api_server:app --host 0.0.0.0 --port 8001 --reload
@@ -75,7 +75,7 @@ Language Model (Llama, etc.)
          ↓
     HTTP API (port 8001)
          ↓
-  Mistral Server (192.168.2.155:8000) ← [optional, for query understanding]
+  Mistral Server (localhost:8000) ← [optional, for query understanding]
          ↓
     MCP Server  
          ↓
@@ -113,7 +113,7 @@ Response:
 {
   "enabled": true,
   "available": true,
-  "url": "http://192.168.2.155:8000",
+  "url": "http://localhost:8000",
   "status": "connected"
 }
 ```
@@ -244,7 +244,7 @@ You can use this API with Llama or other local models:
 import requests
 import json
 
-def query_netpicker_with_llm(question: str, mistral_url: str = "http://192.168.2.155:8000"):
+def query_netpicker_with_llm(question: str, mistral_url: str = "http://localhost:8000"):
     # Step 1: Send to our HTTP API (which uses Mistral internally if available)
     response = requests.post(
         "http://localhost:8001/query",
@@ -314,7 +314,7 @@ Set environment variables to configure the API server:
 
 ```bash
 # Mistral configuration
-export MISTRAL_URL="http://192.168.2.155:8000"
+export MISTRAL_URL="http://localhost:8000"
 export USE_MISTRAL="true"
 
 # Netpicker configuration (shared with MCP server)

@@ -1,13 +1,27 @@
 [project]
 name = "netpicker-cli"
-version = "0.1.1"
+version = "0.1.4"
 description = "Netpicker CLI for devices and backups"
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
+license = "MIT"
 authors = [{ name = "Netpicker Team", email = "support@netpicker.io" }]
+keywords = ["netpicker", "network", "cli", "automation", "configuration", "backup"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: System Administrators",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: System :: Networking",
+    "Topic :: System :: Systems Administration",
+]
 dependencies = [
   "typer>=0.12.5",
+  "mcp>=1.0.0",
   "httpx>=0.27",
   "pydantic>=2.8",
   "keyring>=25.2.1",
@@ -15,6 +29,13 @@ dependencies = [
   "tabulate>=0.9.0",
   "PyYAML>=6.0.1",
 ]
+
+[project.urls]
+Homepage = "https://netpicker.io"
+Documentation = "https://github.com/netpicker/netpicker-cli#readme"
+Repository = "https://github.com/netpicker/netpicker-cli"
+Issues = "https://github.com/netpicker/netpicker-cli/issues"
+Changelog = "https://github.com/netpicker/netpicker-cli/blob/main/CHANGELOG.md"
 
 [project.scripts]
 netpicker = "netpicker_cli.cli:app"

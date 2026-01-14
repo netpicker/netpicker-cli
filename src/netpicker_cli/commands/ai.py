@@ -121,7 +121,7 @@ def fetch_latest_backup(ip: str) -> str:
     """
     try:
         # Step 1: Get the latest backup ID
-        result = run_netpicker_command(["backups", "list", "--ip", ip, "--json"])
+        result = run_netpicker_command(["backups", "list", ip, "--json"])
         if not result["success"]:
             return f"Error getting backup list: {result['stderr']}"
         
@@ -136,7 +136,7 @@ def fetch_latest_backup(ip: str) -> str:
                     return "Could not find backup ID in response"
                 
                 # Step 2: Fetch the configuration using the ID
-                fetch_result = run_netpicker_command(["backups", "fetch", "--ip", ip, "--id", latest_id])
+                fetch_result = run_netpicker_command(["backups", "fetch", ip, "--id", latest_id])
                 if fetch_result["success"]:
                     return fetch_result["stdout"].strip()
                 else:
@@ -261,9 +261,9 @@ def query(
                     if tool_name == "backups_history" and "ip" in params:
                         cmd.append(params["ip"])
                     if tool_name == "backups_list" and "ip" in params:
-                        cmd.extend(["--ip", params["ip"]])
+                        cmd.append(params["ip"])
                     if tool_name == "backups_diff" and "ip" in params:
-                        cmd.extend(["--ip", params["ip"]])
+                        cmd.append(params["ip"])
                     if tool_name == "compliance_devices" and "ip" in params:
                         cmd.extend(["--ip", params["ip"]])
 

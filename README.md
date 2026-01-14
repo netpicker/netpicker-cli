@@ -169,10 +169,11 @@ Manage device configuration backups, compare versions, and search through backup
 
 ```bash
 netpicker backups recent [--limit N] [--format FORMAT]                    # Recent backups across all devices
-netpicker backups list --ip <IP/FQDN> [--page N] [--size N] [--all] [--parallel P] [--format FORMAT]  # List backups for device
+netpicker backups list <IP/FQDN> [--page N] [--size N] [--all] [--parallel P] [--format FORMAT]  # List backups for device
 netpicker backups history <IP/FQDN> [--limit N] [--format FORMAT]    # Backup history for device
 netpicker backups upload <IP/FQDN> --file <FILE>     # Upload config backup
-netpicker backups diff [--ip <IP/FQDN>] [--id-a ID] [--id-b ID] [--context N] [--format FORMAT]
+netpicker backups diff <IP/FQDN> [--id-a ID] [--id-b ID] [--context N] [--format FORMAT]
+netpicker backups fetch <IP/FQDN> --id <CONFIG_ID> [--output DIR]    # Download specific config
 netpicker backups search [--q TEXT] [--device IP] [--since TS] [--limit N] [--format FORMAT]
 netpicker backups commands [--platform <name>] [--format FORMAT]          # Show backup commands for platform
 ```
@@ -184,16 +185,16 @@ netpicker backups commands [--platform <name>] [--format FORMAT]          # Show
 netpicker backups recent --limit 20
 
 # List backups for a specific device
-netpicker backups list --ip 192.168.1.1
+netpicker backups list 192.168.1.1
 
 # List all backups for a device with parallel fetching
-netpicker backups list --ip 192.168.1.1 --all --parallel 5
+netpicker backups list 192.168.1.1 --all --parallel 5
 
 # Compare latest two configs for a device
-netpicker backups diff --ip 192.168.1.1
+netpicker backups diff 192.168.1.1
 
 # Compare specific config versions
-netpicker backups diff --ip 192.168.1.1 --id-a config-id-1 --id-b config-id-2
+netpicker backups diff 192.168.1.1 --id-a config-id-1 --id-b config-id-2
 
 # Search for configs containing specific text
 netpicker backups search --q "interface GigabitEthernet" --device 192.168.1.1
