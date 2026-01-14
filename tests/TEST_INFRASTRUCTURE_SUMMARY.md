@@ -113,14 +113,7 @@ Mock utilities and data generators:
    - Error handling in callbacks
 
 #### Integration Tests
-3. **test_ai_routing.py** (220 lines, 16 tests)
-   - AI query routing integration tests
-   - Mistral router functionality
-   - Edge cases and error handling
-   - CLI interface for AI commands
-   - Query parsing and intent detection
-
-4. **test_edge_cases.py** (500+ lines, 24 tests)
+3. **test_edge_cases.py** (500+ lines, 24 tests)
    - Empty responses handling
    - Malformed JSON parsing
    - HTTP error scenarios (404, 401, 500, 429)
@@ -150,9 +143,8 @@ tests/
 │   ├── test_config_load.py       # 1 test
 │   ├── test_parameter_extraction.py  # 20 tests
 │   └── test_utils_files.py       # 1 test
-└── integration/             # 139 integration tests
+└── integration/             # Integration tests
     ├── __init__.py
-    ├── test_ai_routing.py         # 16 tests
     ├── test_automation.py         # 18 tests
     ├── test_backups.py            # 14 tests
     ├── test_backups_diff.py       # 1 test
@@ -181,7 +173,6 @@ tests/
 ### 2. **Comprehensive Coverage**
 - 1,900+ new test lines covering:
   - Parameter extraction logic
-  - AI query routing and Mistral integration
   - Edge cases (empty responses, malformed JSON)
   - HTTP error codes (404, 401, 500, 429)
   - Network errors and timeouts
@@ -236,20 +227,13 @@ tests/
 - `commands/devices.py`: 71% ✅
 - `utils/logging.py`: 64% ✅
 - `mcp/server.py`: 63% ✅
-- `commands/ai.py`: 59% ✅
 - `utils/output.py`: 56% ✅
 - Other modules: 20-40%
 
 ## 🔧 Next Steps
 
 ### High Priority (32 failing tests to fix)
-1. **AI Routing Tests** (7 failures)
-   - Fix `test_ai_query_unknown_intent` - adjust assertion for unknown queries
-   - Fix `test_ai_query_with_json_output` - verify JSON output format
-   - Fix `test_ai_query_output_to_file` - test file output functionality
-   - Fix edge case tests for empty/long/special character queries
-
-2. **Edge Case Tests** (11 failures)
+1. **Edge Case Tests** (11 failures)
    - Fix empty response handling tests
    - Adjust HTTP error code assertions
    - Fix data integrity test expectations

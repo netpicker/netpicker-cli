@@ -1,7 +1,7 @@
 # NetPicker CLI - Technical Documentation
 
-> **Last Updated**: January 8, 2026  
-> **Version**: 0.1.1  
+> **Last Updated**: January 14, 2026  
+> **Version**: 0.1.2  
 > **Python**: 3.11+
 
 ---
@@ -34,7 +34,7 @@
 │  │ devices │ │ backups │ │ policy  │ │compliance│ │automation│  │
 │  └─────────┘ └─────────┘ └─────────┘ └─────────┘ └─────────┘   │
 │  ┌─────────┐ ┌─────────┐ ┌─────────┐                            │
-│  │   ai    │ │  auth   │ │ health  │                            │
+│  │  auth   │ │ health  │ │ whoami  │                            │
 │  └─────────┘ └─────────┘ └─────────┘                            │
 └─────────────────────────────────────────────────────────────────┘
                                   │
@@ -79,18 +79,12 @@ netpicker-cli/
 ├── src/netpicker_cli/           # Main source code
 │   ├── __init__.py              # Package marker
 │   ├── cli.py                   # CLI entry point, command registration
-│   ├── api_server.py            # FastAPI server (optional)
 │   │
 │   ├── api/                     # API client layer
 │   │   ├── client.py            # ApiClient & AsyncApiClient
 │   │   └── errors.py            # Custom exceptions
 │   │
-│   ├── ai/                      # AI routing
-│   │   ├── __init__.py
-│   │   └── router.py            # Query-to-tool routing logic
-│   │
 │   ├── commands/                # CLI command implementations
-│   │   ├── ai.py                # AI/NLP commands
 │   │   ├── auth.py              # Authentication (login/logout)
 │   │   ├── automation.py        # Job execution & queue management
 │   │   ├── backups.py           # Config backup operations
@@ -309,7 +303,6 @@ formatter.output(data, headers=["col1", "col2"])
 | `commands/compliance.py` | 810 | overview, report-tenant, devices, export, status, failures, log, report-config | Compliance reporting |
 | `commands/compliance_policy.py` | 610 | list, show, create, update, replace, add-rule, remove-rule, test-rule, execute-rules | Policy management |
 | `commands/backups.py` | 535 | recent, list, fetch, diff, search, commands, upload, history | Config backup operations |
-| `commands/ai.py` | 409 | query, status, tools, chat | AI-powered queries |
 | `commands/devices.py` | 387 | list, show, create, delete | Device CRUD |
 | `commands/auth.py` | 121 | login, logout, status | Authentication |
 | `commands/whoami.py` | 108 | whoami | User info |
@@ -321,7 +314,6 @@ formatter.output(data, headers=["col1", "col2"])
 |------|-------|---------|
 | `utils/validation.py` | 432 | Input validation (IP, hostname, limit, offset, tags, JSON) |
 | `utils/helpers.py` | 324 | Centralized helper functions (DRY) |
-| `utils/config_extraction.py` | 243 | Config parsing for AI routing |
 | `utils/output.py` | 198 | Multi-format output (table/json/csv/yaml) |
 | `utils/cache.py` | 173 | Session-scoped caching |
 | `utils/logging.py` | 136 | Logging setup and utilities |
@@ -359,7 +351,6 @@ tests/
 │   ├── test_devices_list.py       # Device list (2 tests)
 │   ├── test_devices_list_show.py  # Device show (2 tests)
 │   ├── test_devices_delete.py     # Device delete (2 tests)
-│   ├── test_ai_routing.py         # AI query routing (20 tests)
 │   ├── test_compliance.py         # Compliance (if exists)
 │   ├── test_edge_cases.py         # Edge cases & errors (15 tests)
 │   ├── test_health.py             # Health check (1 test)

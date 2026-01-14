@@ -42,16 +42,17 @@ class LoginCommand(TyperCommand):
 
     def format_output(self, result: dict[str, str]) -> None:
         """Format and display login results."""
+        typer.secho("✓ config saved", fg=typer.colors.GREEN)
+        typer.echo(f"  Base URL: {result['base_url']}")
+        typer.echo(f"  Tenant  : {result['tenant']}")
+        typer.echo("")
+        
         if result.get("keyring_saved"):
-            typer.secho("✓ credentials saved to keyring", fg=typer.colors.GREEN)
+            typer.secho("✓ token saved to keyring", fg=typer.colors.GREEN)
         else:
-            typer.secho("⚠ keyring not available - use environment variables instead:", fg=typer.colors.YELLOW)
-            typer.echo(f"  export NETPICKER_BASE_URL=\"{result['base_url']}\"")
-            typer.echo(f"  export NETPICKER_TENANT=\"{result['tenant']}\"")
+            typer.secho("⚠ keyring not available - set token via environment variable:", fg=typer.colors.YELLOW)
             typer.echo(f"  export NETPICKER_TOKEN=\"<your-token>\"")
             typer.echo("")
-        typer.echo(f"Base URL: {result['base_url']}")
-        typer.echo(f"Tenant  : {result['tenant']}")
         typer.echo("Tip: run `netpicker whoami` to verify.")
 
     @staticmethod

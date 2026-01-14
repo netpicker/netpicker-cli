@@ -8,7 +8,7 @@ A comprehensive command-line interface for Netpicker API — empowering network 
 - **Backup Operations**: Upload, fetch, search, and compare device configurations
 - **Compliance Management**: Create policies, add rules, run compliance checks, and generate reports
 - **Automation**: Execute jobs, manage queues, store and test automation scripts
-- **AI Assistance**: Natural language querying and AI-powered network management
+- **MCP Server**: Integrate with AI assistants like Claude for natural language network management
 - **Health Monitoring**: System status checks and user authentication verification
 
 ---
@@ -135,7 +135,7 @@ netpicker devices list --format json
 netpicker devices show 192.168.1.1 --format json
 
 # Create a new device with tags
-netpicker devices create 10.0.0.1 --name router01 --platform cisco_ios --tags "production,core"
+netpicker devices create 10.0.0.1 --name router01 --platform cisco_ios --vault default --tags "production,core"
 
 # Create a device with custom vault
 netpicker devices create 10.0.0.2 --name switch01 --platform cisco_nxos --vault my-vault --port 22
@@ -429,46 +429,7 @@ netpicker automation list-jobs --format json > jobs.json
 
 ---
 
-## 🤖 AI-Powered Features
-
-NetPicker CLI includes AI assistance for natural language network management and intelligent querying.
-
-### AI Command
-
-```bash
-# Natural language device queries
-netpicker ai query "Show me all devices"
-netpicker ai query "List devices with tag production"
-netpicker ai query "Show device 192.168.1.1"
-
-# Backup queries
-netpicker ai query "Show recent backups"
-netpicker ai query "Get backup history for 192.168.1.1"
-
-# Compliance queries
-netpicker ai query "Check compliance status for router 10.0.0.1"
-netpicker ai query "Show compliance failures"
-
-# AI service status
-netpicker ai status
-
-# List available AI tools
-netpicker ai tools
-
-# Interactive AI chat mode
-netpicker ai chat
-
-# Query with JSON output
-netpicker ai query "List all devices" --format json
-
-# Query with output to file
-netpicker ai query "Show recent backups" --output results.json
-
-# Query without AI processing (keyword matching only)
-netpicker ai query "show devices" --no-ai
-```
-
-### Model Context Protocol (MCP) Server
+## 🤖 Model Context Protocol (MCP) Server
 
 NetPicker CLI includes a built-in MCP server that enables AI assistants like Claude to interact with your network infrastructure through natural language conversations.
 

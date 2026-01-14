@@ -55,14 +55,6 @@ class TestCommandCallbacks:
         assert "overview" in result.output
         assert "status" in result.output
 
-    def test_ai_callback_no_subcommand(self, runner):
-        """Test AI callback when no subcommand is provided"""
-        result = runner.invoke(app, ["ai"])
-        
-        assert result.exit_code == 0
-        assert "Netpicker AI Commands" in result.output or "AI" in result.output
-        assert "query" in result.output
-
 
 class TestCallbackContext:
     """Test callback context handling"""

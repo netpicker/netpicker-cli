@@ -1,6 +1,6 @@
 [project]
 name = "netpicker-cli"
-version = "0.1.6"
+version = "0.1.7"
 description = "Netpicker CLI for devices and backups"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -40,7 +40,6 @@ Changelog = "https://github.com/netpicker/netpicker-cli/blob/main/CHANGELOG.md"
 [project.scripts]
 netpicker = "netpicker_cli.cli:app"
 netpicker-mcp = "netpicker_cli.mcp.server:main"
-netpicker-api = "netpicker_cli.api_server:main"
 
 [project.optional-dependencies]
 dev = [
@@ -55,22 +54,6 @@ dev = [
 ]
 mcp = [
   "mcp>=1.0.0",
-]
-api = [
-  "fastapi>=0.104.0",
-  "uvicorn>=0.24.0",
-  "pydantic>=2.8",
-]
-ai = [
-  "httpx>=0.27",
-  "pydantic>=2.8",
-]
-all = [
-  "mcp>=1.0.0",
-  "fastapi>=0.104.0",
-  "uvicorn>=0.24.0",
-  "httpx>=0.27",
-  "pydantic>=2.8",
 ]
 
 [tool.ruff]
