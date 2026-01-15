@@ -146,18 +146,23 @@ def recent(
         format = "json"
 
     formatter = OutputFormatter(format=format, output_file=output_file)
-    headers = ["device", "ip", "config_id", "created_at", "size", "error"]
+    headers = ["device", "ip", "platform", "tags", "config_id", "created_at", "size", "error"]
 
     if format in [OutputFormat.TABLE, OutputFormat.CSV]:
         def _sz(it): return it.get("size") or it.get("file_size")
         def _ts(it): return it.get("created_at") or it.get("upload_date")
         def _err(it): return "ERR" if it.get("readout_error") else ""
+        def _tags(it): 
+            tags = it.get("tags", []) or []
+            return ",".join(tags) if tags else ""
         
         rows = []
         for it in items:
             rows.append({
                 "device": it.get("name") or it.get("device"),
                 "ip": it.get("ipaddress"),
+                "platform": it.get("platform", ""),
+                "tags": _tags(it),
                 "config_id": it.get("id") or it.get("config_id"),
                 "created_at": _ts(it),
                 "size": _sz(it),
