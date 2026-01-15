@@ -5,7 +5,7 @@ A comprehensive command-line interface for Netpicker API — empowering network 
 ## ✨ Key Features
 
 - **Device Management**: List, create, show, and delete network devices
-- **Backup Operations**: Upload, fetch, search, and compare device configurations
+- **Backup Operations**: Upload, download, search, and compare device configurations
 - **Compliance Management**: Create policies, add rules, run compliance checks, and generate reports
 - **Automation**: Execute jobs, manage queues, store and test automation scripts
 - **MCP Server**: Integrate with AI assistants like Claude for natural language network management
@@ -173,7 +173,7 @@ netpicker backups list <IP/FQDN> [--page N] [--size N] [--all] [--parallel P] [-
 netpicker backups history <IP/FQDN> [--limit N] [--format FORMAT]    # Backup history for device
 netpicker backups upload <IP/FQDN> --file <FILE>     # Upload config backup
 netpicker backups diff <IP/FQDN> [--id-a ID] [--id-b ID] [--context N] [--format FORMAT]
-netpicker backups fetch <IP/FQDN> --id <CONFIG_ID> [--output DIR]    # Download specific config
+netpicker backups download <IP/FQDN> --id <CONFIG_ID> [--output DIR]    # Download specific config
 netpicker backups search [--q TEXT] [--device IP] [--since TS] [--limit N] [--format FORMAT]
 netpicker backups commands [--platform <name>] [--format FORMAT]          # Show backup commands for platform
 ```

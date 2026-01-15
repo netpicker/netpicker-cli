@@ -27,7 +27,7 @@ def main_callback(ctx: typer.Context) -> None:
         typer.echo("  diff      Diff two configs for a device")
         typer.echo("  recent    List the most recent configuration backups across devices")
         typer.echo("  list      List configuration backups for a single device")
-        typer.echo("  fetch     Fetch a device config blob and save it to disk")
+        typer.echo("  download  Download a device config blob and save it to disk")
         typer.echo("  search    Search configs across devices")
         typer.echo("  commands  Show backup command templates per platform")
         typer.echo("  upload    Upload a device config snapshot to Netpicker")
@@ -35,7 +35,7 @@ def main_callback(ctx: typer.Context) -> None:
         typer.echo("")
         typer.echo("Examples:")
         typer.echo("  netpicker backups list 192.168.1.1")
-        typer.echo("  netpicker backups fetch 192.168.1.1 --id <config-id>")
+        typer.echo("  netpicker backups download 192.168.1.1 --id <config-id>")
         typer.echo("  netpicker backups diff 192.168.1.1")
         typer.echo("  netpicker backups recent")
         typer.echo("")
@@ -265,21 +265,37 @@ def list_configs(
         formatter.output(items)
 
 
-@app.command("fetch")
-def fetch(
+@app.command("download")
+def download(
     ip: str = typer.Argument(..., help="Device IP/hostname"),
     id: str = typer.Option(..., "--id"),
     output: Path = typer.Option(Path("."), "--output", "-o", help="Directory to save file"),
+    kind: str = typer.Option("configuration", "--kind", help="Config kind: configuration, running, startup, etc."),
+    raw: bool = typer.Option(False, "--raw", help="Return raw device config (unformatted)"),
+    preview: bool = typer.Option(False, "--preview", help="Return preview instead of full config"),
 ):
     """
-    Fetch a device config blob and save it to disk.
+    Download a device config blob and save it to disk.
 
     Calls GET /api/v1/devices/{tenant}/{ip}/configs/{id} and writes the
     binary content to `<output>/<ip>-<id>.cfg`. Use `--output` to change the
     destination directory (defaults to current directory).
+    
+    Options:
+      --kind: Type of config to download (default: configuration)
+      --raw: Get raw device config without processing
+      --preview: Get config preview instead of full config
     """
     s = load_settings(); cli = ApiClient(s)
-    blob = cli.get_binary(f"/api/v1/devices/{s.tenant}/{ip}/configs/{id}")
+    params = {}
+    if kind:
+        params["kind"] = kind
+    if raw:
+        params["raw"] = "true"
+    if preview:
+        params["preview"] = "true"
+    
+    blob = cli.get_binary(f"/api/v1/devices/{s.tenant}/{ip}/configs/{id}", params=params)
     output.mkdir(parents=True, exist_ok=True)
     dest = output / f"{ip}-{id}.cfg"
     atomic_write(str(dest), blob)

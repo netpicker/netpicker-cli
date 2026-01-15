@@ -87,8 +87,8 @@ class AsyncApiClient:
     async def get(self, url: str, params: Optional[Dict[str, Any]] = None) -> httpx.Response:
         return await self._request("GET", url, params=params)
 
-    async def get_binary(self, url: str) -> bytes:
-        r = await self._request("GET", url)
+    async def get_binary(self, url: str, params: Optional[Dict[str, Any]] = None) -> bytes:
+        r = await self._request("GET", url, params=params)
         return r.content
 
     async def post(self, url: str, json: Optional[Dict[str, Any]] = None, params: Optional[Dict[str, Any]] = None) -> httpx.Response:
@@ -179,8 +179,8 @@ class ApiClient:
     def get(self, url: str, params: Optional[Dict[str, Any]] = None) -> httpx.Response:
         return self._request("GET", url, params=params)
 
-    def get_binary(self, url: str) -> bytes:
-        return self._request("GET", url).content
+    def get_binary(self, url: str, params: Optional[Dict[str, Any]] = None) -> bytes:
+        return self._request("GET", url, params=params).content
 
     def post(self, url: str, json: Optional[Dict[str, Any]] = None, params: Optional[Dict[str, Any]] = None) -> httpx.Response:
         return self._request("POST", url, json=json, params=params)
