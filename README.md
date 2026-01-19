@@ -49,6 +49,8 @@ netpicker auth login \
 
 This securely stores your token in the OS keyring and saves URL/tenant to `~/.config/netpicker/config.json`.
 
+> **Note**: The config file is only created when using `netpicker auth login`. If you prefer environment variables, the config file won't be created.
+
 #### Alternative: Environment Variables
 
 **Unix/macOS:**
@@ -222,12 +224,12 @@ Create and manage compliance policies with customizable rules for network securi
 
 ```bash
 netpicker policy list [--format FORMAT]                                    # List compliance policies
-netpicker policy show --name <NAME> [--format FORMAT]                      # Show policy details
+netpicker policy show <POLICY_ID> [--format FORMAT]                       # Show policy details
 netpicker policy create --name <NAME> [--description DESC]       # Create new policy
-netpicker policy update --name <NAME> [--description DESC]       # Update policy
-netpicker policy replace --name <NAME> --file <FILE>              # Replace policy from file
+netpicker policy update <POLICY_ID> [--name NAME] [--description DESC]    # Update policy
+netpicker policy replace <POLICY_ID> --name <NAME> [--description DESC]   # Replace policy
 netpicker policy add-rule <POLICY> --name <NAME> [options...]     # Add rule to policy
-netpicker policy remove-rule --name <POLICY> --rule-name <NAME>   # Remove rule from policy
+netpicker policy remove-rule <POLICY_ID> <RULE_NAME>                      # Remove rule from policy
 netpicker policy test-rule <POLICY> --name <NAME> --ip <IP> --config <CONFIG> [options...]  # Test rule against config
 netpicker policy execute-rules [--devices <DEVICES>] [--policies <POLICIES>] [--rules <RULES>] [--tags <TAGS>]  # Execute all policy rules
 ```
@@ -242,7 +244,7 @@ netpicker policy list
 netpicker policy list --format json
 
 # Show policy details
-netpicker policy show --name security-policy
+netpicker policy show security-policy
 
 # Create a security policy
 netpicker policy create --name security-policy --description "Network security compliance"
@@ -263,7 +265,7 @@ netpicker policy add-rule security-policy --name rule_password_complexity \
   --simplified-text "enable secret [0-9]" --simplified-regex
 
 # Remove a rule from a policy
-netpicker policy remove-rule --name security-policy --rule-name rule_no_telnet
+netpicker policy remove-rule security-policy rule_no_telnet
 
 # Test a rule against a configuration
 netpicker policy test-rule security-policy --name rule_no_telnet \
@@ -281,7 +283,7 @@ netpicker policy execute-rules --devices 192.168.1.1,192.168.1.2
 netpicker policy execute-rules --tags production,core
 
 # Update a policy description
-netpicker policy update --name security-policy --description "Updated security policy v2"
+netpicker policy update security-policy --description "Updated security policy v2"
 ```
 
 ---
@@ -295,12 +297,12 @@ Run compliance checks against device configurations and generate detailed report
 ```bash
 netpicker compliance overview [--format FORMAT]                           # Compliance overview
 netpicker compliance report-tenant [--policy POLICY] [--format FORMAT]                      # Tenant-wide compliance report
-netpicker compliance devices [--ip IP] [--policy POLICY] [--format FORMAT] # Device compliance status
+netpicker compliance devices [--ipaddress IP] [--policy POLICY] [--format FORMAT] # Device compliance status
 netpicker compliance export [--format FORMAT] [-o FILE]          # Export compliance data
-netpicker compliance status [--policy POLICY] [--format FORMAT]           # Compliance status summary
-netpicker compliance failures [--limit N] [--format FORMAT]               # List compliance failures
-netpicker compliance log [--policy POLICY] [--limit N] [--format FORMAT]  # Compliance check logs
-netpicker compliance report-config --config-id <ID> [--format FORMAT]      # Config compliance report
+netpicker compliance status <IP/FQDN> [--format FORMAT]                      # Device compliance status
+netpicker compliance failures [--format FORMAT]                               # List compliance failures
+netpicker compliance log <CONFIG_ID> [--body BODY] [--format FORMAT]          # Log compliance for config
+netpicker compliance report-config <CONFIG_ID> [--body BODY] [--format FORMAT] # Report compliance for config
 ```
 
 ### Examples
@@ -327,22 +329,19 @@ netpicker compliance devices --policy security-policy
 # Check compliance for a specific device
 netpicker compliance devices --ipaddress 192.168.1.1
 
-# View compliance failures (most recent)
-netpicker compliance failures --limit 20
+# View compliance failures
+netpicker compliance failures
 
-# View compliance check logs
-netpicker compliance log --limit 10
-
-# View logs for a specific policy
-netpicker compliance log --policy security-policy
+# Log compliance for a specific config
+netpicker compliance log <config-id> --body '{"outcome": "SUCCESS"}'
 
 # Export compliance data to file
 netpicker compliance export --format json -o compliance_export.json
 
-# Generate config-specific compliance report
-netpicker compliance report-config --config-id config-123
+# Report compliance for a specific config
+netpicker compliance report-config <config-id> --body @report.json
 
-# Export compliance status as JSON
+# Check compliance status for a specific device
 netpicker compliance status 192.168.1.1 --format json
 ```
 
@@ -357,19 +356,19 @@ Execute automation jobs, manage job queues, and monitor automation execution.
 ```bash
 netpicker automation list-fixtures [--format FORMAT]                       # List available fixtures
 netpicker automation list-jobs [--pattern PATTERN] [--format FORMAT]                           # List automation jobs
-netpicker automation store-job --name <NAME> --job-config <JSON>  # Store automation job
+netpicker automation store-job --name <NAME> --sources <SOURCES>            # Store automation job
 netpicker automation store-job-file --name <NAME> --file <FILE>    # Store job from file
-netpicker automation show-job --name <NAME> [--format FORMAT]               # Show job details
-netpicker automation delete-job --name <NAME> [--force]            # Delete automation job
-netpicker automation test-job --name <NAME> [--fixtures JSON]      # Test automation job
+netpicker automation show-job <NAME> [--format FORMAT]                      # Show job details
+netpicker automation delete-job <NAME> [--format FORMAT]                    # Delete automation job
+netpicker automation test-job --name <NAME> [--variables VARS]              # Test automation job
 netpicker automation execute-job --name <NAME> [options...]   # Execute automation job
-netpicker automation logs [--job JOB] [--limit N] [--format FORMAT]         # View automation logs
-netpicker automation show-log --id <LOG_ID> [--format FORMAT]               # Show specific log entry
+netpicker automation logs [--job-name JOB] [--status STATUS] [--page N] [--size N] [--format FORMAT]  # View automation logs
+netpicker automation show-log <LOG_ID> [--format FORMAT]                    # Show specific log entry
 netpicker automation list-queue [--format FORMAT]                           # List job queues
-netpicker automation store-queue --name <NAME> --queue-config <JSON> # Store job queue
-netpicker automation show-queue --name <NAME> [--format FORMAT]             # Show queue details
-netpicker automation delete-queue --name <NAME> [--force]          # Delete job queue
-netpicker automation review-queue --name <NAME> [--format FORMAT]           # Review queue status
+netpicker automation store-queue --name <NAME> --sources <SOURCES>          # Store job queue
+netpicker automation show-queue <QUEUE_ID> [--format FORMAT]                # Show queue details
+netpicker automation delete-queue <QUEUE_ID> [--format FORMAT]              # Delete job queue
+netpicker automation review-queue <QUEUE_ID> --approved <true|false>        # Review queue (approve/reject)
 ```
 
 ### Examples
@@ -385,13 +384,13 @@ netpicker automation list-jobs
 netpicker automation list-jobs --pattern health
 
 # Show details of a specific job
-netpicker automation show-job --name network-health-check
+netpicker automation show-job my-backup-job
 
 # Execute a health check job on all devices
 netpicker automation execute-job --name network-health-check
 
 # Execute a job on specific devices
-netpicker automation execute-job --name backup-config --targets 192.168.1.1,192.168.1.2
+netpicker automation execute-job --name backup-config --devices 192.168.1.1,192.168.1.2
 
 # Execute a job on devices with specific tags
 netpicker automation execute-job --name security-audit --tags production
@@ -400,28 +399,31 @@ netpicker automation execute-job --name security-audit --tags production
 netpicker automation execute-job --name custom-script --variables "timeout:30;retry:3"
 
 # Test a job before execution
-netpicker automation test-job --name network-health-check
+netpicker automation test-job --name network-health-check --variables "threshold:80"
 
-# View automation logs (most recent)
-netpicker automation logs --limit 10
+# View automation logs (first 50, page 1)
+netpicker automation logs
+
+# View logs with custom page size
+netpicker automation logs --size 10 --page 1
 
 # View logs for a specific job
-netpicker automation logs --job network-health-check --limit 5
+netpicker automation logs --job-name network-health-check --status SUCCESS
 
 # Show details of a specific log entry
-netpicker automation show-log --id log-123
+netpicker automation show-log 123456789012345678
 
 # Store a new automation job from a file
 netpicker automation store-job-file --name my-job --file job_config.py
 
 # Delete an automation job
-netpicker automation delete-job --name old-job
+netpicker automation delete-job old-job
 
 # List queued jobs
 netpicker automation list-queue
 
 # Review and approve a queued job
-netpicker automation review-queue --name pending-job
+netpicker automation review-queue 987654321098765432 --approved true
 
 # Export job list as JSON
 netpicker automation list-jobs --format json > jobs.json

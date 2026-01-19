@@ -808,7 +808,7 @@ def logs(
             for line in lines:
                 typer.echo(f"  {line}")
             if len(log.split('\n')) > 10:
-                line_count = len(content.splitlines()) - 10
+                line_count = len(log.splitlines()) - 10
                 typer.echo(f"    ... ({line_count} more lines)")
         typer.echo("-" * 50)
 
