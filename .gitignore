@@ -10,6 +10,7 @@ dist/
 build/
 .python-version
 venv/
+.venv/
 .env
 .env.*
 .coverage

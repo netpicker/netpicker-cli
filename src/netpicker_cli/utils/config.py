@@ -22,6 +22,24 @@ class Settings:
     token: Optional[str] = None
     verbose: bool = False
     quiet: bool = False
+    ca_bundle: Optional[str] = None
+    use_proxy: bool = False
+
+    @property
+    def ssl_verify(self):
+        """
+        Return the appropriate value for httpx's ``verify`` parameter.
+
+        Priority:
+        1. ``insecure=True``  → ``False`` (skip all TLS verification)
+        2. ``ca_bundle`` set  → path string (custom CA bundle)
+        3. otherwise          → ``True`` (default system CA store)
+        """
+        if self.insecure:
+            return False
+        if self.ca_bundle:
+            return self.ca_bundle
+        return True
 
     def auth_headers(self) -> Dict[str, str]:
         """
@@ -100,6 +118,13 @@ def load_settings() -> Settings:
     except ValueError:
         timeout = 30.0
 
+    # Custom CA certificate bundle (PEM file path)
+    ca_bundle = os.environ.get("NETPICKER_CA_BUNDLE") or file_config.get("ca_bundle") or None
+
+    # Proxy: disabled by default (Netpicker is typically an internal service).
+    # Set NETPICKER_USE_PROXY=1 to let httpx honour HTTP_PROXY / HTTPS_PROXY.
+    use_proxy = _env_bool("NETPICKER_USE_PROXY", default=False)
+
     # Logging configuration
     verbose = _env_bool("NETPICKER_VERBOSE", default=False)
     quiet = _env_bool("NETPICKER_QUIET", default=False)
@@ -112,6 +137,8 @@ def load_settings() -> Settings:
         token=token,
         verbose=verbose,
         quiet=quiet,
+        ca_bundle=ca_bundle,
+        use_proxy=use_proxy,
     )
 
 

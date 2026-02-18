@@ -189,9 +189,22 @@ class Settings:
     token: str          # API token (from keyring or env)
     timeout: float      # Request timeout (default: 30)
     insecure: bool      # Skip TLS verification
+    ca_bundle: str      # Custom CA certificate bundle path (PEM)
+    use_proxy: bool     # Enable proxy (default: False)
     verbose: bool       # Debug logging
     quiet: bool         # Suppress output
 ```
+
+**TLS Verification** (`ssl_verify` property):
+- `insecure=True` → `False` (skip all TLS checks)
+- `ca_bundle` set → returns the path (custom CA for internal PKI)
+- otherwise → `True` (system CA store)
+
+**Proxy Behaviour**:
+- Proxy is **disabled by default** (`use_proxy=False`) — Netpicker is typically an internal service
+- Set `NETPICKER_USE_PROXY=1` to let httpx honour `HTTP_PROXY` / `HTTPS_PROXY` env vars
+- When proxy is enabled, CIDR-aware `no_proxy` bypass (`utils/proxy.py`) still applies
+- CIDR blocks (e.g. `10.0.0.0/8`) in `no_proxy` are parsed and matched correctly, unlike native httpx
 
 ### 4. Centralized Helpers (`utils/helpers.py`)
 
@@ -588,7 +601,7 @@ export PYTHON_KEYRING_BACKEND=keyrings.alt.file.PlaintextKeyring
 | Cause | Solution |
 |-------|----------|
 | Package not installed | `pip install -e ".[dev,mcp]"` |
-| Wrong Python version | Use Python 3.11+ |
+| Wrong Python version | Use Python 3.10+ |
 | Circular import | Check import order in affected module |
 
 ---
@@ -763,6 +776,8 @@ NETPICKER_TENANT      # Tenant name
 NETPICKER_TOKEN       # API token
 NETPICKER_TIMEOUT     # Request timeout (seconds)
 NETPICKER_INSECURE    # Skip TLS verification
+NETPICKER_CA_BUNDLE   # Custom CA certificate bundle (PEM file path)
+NETPICKER_USE_PROXY   # Enable proxy (disabled by default)
 NETPICKER_VERBOSE     # Enable debug logging
 NETPICKER_QUIET       # Suppress output
 ```

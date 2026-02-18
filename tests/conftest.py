@@ -13,7 +13,10 @@ import pytest
 from typer.testing import CliRunner
 from unittest.mock import MagicMock, AsyncMock
 from netpicker_cli.utils.config import Settings
-from netpicker_cli.ai.router import QueryRouter
+try:
+    from netpicker_cli.ai.router import QueryRouter
+except ImportError:
+    QueryRouter = None  # ai module not yet available
 import json
 import asyncio
 

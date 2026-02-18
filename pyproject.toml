@@ -3,7 +3,7 @@ name = "netpicker-cli"
 version = "0.1.9"
 description = "Netpicker CLI for devices and backups"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 license = "MIT"
 authors = [{ name = "Netpicker Team", email = "support@netpicker.io" }]
 keywords = ["netpicker", "network", "cli", "automation", "configuration", "backup"]
@@ -14,6 +14,7 @@ classifiers = [
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: System :: Networking",
@@ -55,16 +56,16 @@ dev = [
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 
 [tool.black]
 line-length = 100
-target-version = ["py311"]
+target-version = ["py310"]
 
 [tool.pytest.ini_options]
 addopts = "-q --cov=netpicker_cli --cov-report=term-missing"
 
 [tool.mypy]
-python_version = "3.11"
+python_version = "3.10"
 warn_unused_ignores = true
 strict = false

@@ -7,6 +7,7 @@ import httpx
 from .errors import Unauthorized, TooManyRequests, ServerError
 from ..utils.config import Settings
 from ..utils.logging import get_logger, log_api_call, log_api_response, log_error_with_context
+from ..utils.proxy import should_bypass_proxy
 
 class AsyncApiClient:
     def __init__(self, settings: Settings):
@@ -18,12 +19,21 @@ class AsyncApiClient:
     async def _ensure_initialized(self) -> None:
         """Lazily initialize the async client on first use."""
         if not self._initialized:
-            self._client = httpx.AsyncClient(
+            client_kwargs = dict(
                 base_url=self.s.base_url,
                 headers=self.s.auth_headers(),
                 timeout=self.s.timeout,
-                verify=not self.s.insecure,
+                verify=self.s.ssl_verify,
             )
+            # Proxy is disabled by default (internal service).
+            # When use_proxy is True, allow httpx env-var proxy detection
+            # but still honour CIDR entries in no_proxy.
+            if not self.s.use_proxy:
+                client_kwargs["proxy"] = None
+            elif should_bypass_proxy(self.s.base_url):
+                self.logger.debug("Bypassing proxy for %s (CIDR match in no_proxy)", self.s.base_url)
+                client_kwargs["proxy"] = None
+            self._client = httpx.AsyncClient(**client_kwargs)
             self._initialized = True
 
     async def _request(self, method: str, url: str, **kwargs) -> httpx.Response:
@@ -126,12 +136,21 @@ class ApiClient:
     def _ensure_initialized(self) -> None:
         """Lazily initialize the sync client on first use."""
         if not self._initialized:
-            self._client = httpx.Client(
+            client_kwargs = dict(
                 base_url=self.s.base_url,
                 headers=self.s.auth_headers(),
                 timeout=self.s.timeout,
-                verify=not self.s.insecure,
+                verify=self.s.ssl_verify,
             )
+            # Proxy is disabled by default (internal service).
+            # When use_proxy is True, allow httpx env-var proxy detection
+            # but still honour CIDR entries in no_proxy.
+            if not self.s.use_proxy:
+                client_kwargs["proxy"] = None
+            elif should_bypass_proxy(self.s.base_url):
+                self.logger.debug("Bypassing proxy for %s (CIDR match in no_proxy)", self.s.base_url)
+                client_kwargs["proxy"] = None
+            self._client = httpx.Client(**client_kwargs)
             self._initialized = True
 
     def _request(self, method: str, url: str, **kwargs) -> httpx.Response:

@@ -1,3 +1,4 @@
+from __future__ import annotations
 # src/netpicker_cli/commands/whoami.py
 import base64
 import json

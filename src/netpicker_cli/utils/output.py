@@ -2,6 +2,7 @@
 Output formatting utilities for CLI commands.
 Supports multiple output formats: table, json, csv, yaml.
 """
+from __future__ import annotations
 
 import json
 import csv

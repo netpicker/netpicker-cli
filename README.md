@@ -72,11 +72,45 @@ $env:NETPICKER_TOKEN    = "YOUR_API_TOKEN"
 ```bash
 export NETPICKER_TIMEOUT=30          # Request timeout in seconds
 export NETPICKER_INSECURE=1          # Skip TLS verification (use with caution)
+export NETPICKER_CA_BUNDLE=/path/to/ca.pem  # Custom CA certificate bundle
+export NETPICKER_USE_PROXY=1         # Enable proxy (disabled by default)
 export NETPICKER_VERBOSE=1           # Enable verbose debug logging
 export NETPICKER_QUIET=1             # Suppress informational output
 ```
 
 > Environment variables override config file values when set.
+
+#### Proxy & TLS Configuration
+
+Since Netpicker is typically an internal service, **proxy is disabled by default**.
+All requests go directly to the Netpicker host without consulting `HTTP_PROXY` / `HTTPS_PROXY`.
+
+If you need to route traffic through a proxy, opt in explicitly:
+
+```bash
+export NETPICKER_USE_PROXY=1
+```
+
+When proxy is enabled, netpicker-cli provides enhanced `no_proxy` support
+that correctly handles **CIDR notation** (e.g. `10.0.0.0/8`), which standard httpx ignores:
+
+```bash
+export NETPICKER_USE_PROXY=1
+export no_proxy="10.0.0.0/8,172.16.0.0/12,192.168.0.0/16"
+```
+
+For internal servers with self-signed or private CA certificates, use `NETPICKER_CA_BUNDLE`
+instead of disabling TLS verification:
+
+```bash
+# Preferred: point to your internal CA certificate
+export NETPICKER_CA_BUNDLE=/etc/ssl/certs/internal-ca.pem
+
+# Not recommended: disables all TLS verification
+export NETPICKER_INSECURE=1
+```
+
+**TLS verification priority**: `NETPICKER_INSECURE=1` → skip verification, `NETPICKER_CA_BUNDLE` → custom CA, otherwise → system CA store.
 
 ### Logging & Output Control
 
