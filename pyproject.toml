@@ -1,6 +1,6 @@
 [project]
 name = "netpicker-cli"
-version = "0.1.9"
+version = "0.1.11"
 description = "Netpicker CLI for devices and backups"
 readme = "README.md"
 requires-python = ">=3.10"
