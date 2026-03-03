@@ -4,10 +4,14 @@ import base64
 import json
 import datetime
 import os
-import keyring
-from typing import Optional, Any
+from typing import Any, Dict, List, Optional
 
 import typer
+
+try:
+    import keyring as _keyring  # type: ignore[import-untyped]
+except Exception:  # ImportError, NoKeyringError, etc.
+    _keyring = None  # type: ignore[assignment]
 
 from ..utils.config import load_settings
 from ..utils.output import OutputFormatter, OutputFormat
@@ -22,8 +26,8 @@ class WhoamiCommand(TyperCommand):
         json_out: bool = False,
         format: str = "table",
         output_file: Optional[str] = None,
-        **kwargs
-    ):
+        **kwargs: Any,
+    ) -> None:
         super().__init__(**kwargs)
         self.json_out = json_out
         self.format = format
@@ -34,34 +38,31 @@ class WhoamiCommand(TyperCommand):
         # Arguments are validated by typer options
         pass
 
-    def execute(self) -> dict[str, Any]:
+    def execute(self) -> Dict[str, Any]:
         """Execute whoami logic and return user information."""
         s = load_settings()
 
         # Re-obtain token the same way Settings.auth_headers() does (env > keyring)
-        token = s.token or os.environ.get("NETPICKER_TOKEN")
-        
-        if token is None:
-            # Try keyring if available, but don't crash if it's missing
+        token: Optional[str] = s.token or os.environ.get("NETPICKER_TOKEN")
+
+        if token is None and _keyring is not None:
             try:
-                token = keyring.get_password(
+                token = _keyring.get_password(
                     "netpicker-cli", f"{s.base_url}:{s.tenant}"
                 )
             except Exception:
-                # NoKeyringError or other keyring issues - gracefully skip
                 token = None
 
-        claims = self._decode_jwt_unverified(token or "")
+        claims: Dict[str, Any] = self._decode_jwt_unverified(token or "")
 
-        # Try a few common claim shapes
-        email = (
+        email: Optional[str] = (
             claims.get("claims", {}).get("email")
             or claims.get("email")
             or claims.get("sub")  # fallback
         )
-        scopes = claims.get("scopes", []) or claims.get("claim", {}).get("scopes", [])
-        exp = claims.get("exp")
-        exp_iso = None
+        scopes: List[str] = claims.get("scopes", []) or claims.get("claim", {}).get("scopes", [])
+        exp: Any = claims.get("exp")
+        exp_iso: Optional[str] = None
         if isinstance(exp, (int, float)):
             try:
                 exp_iso = datetime.datetime.utcfromtimestamp(exp).isoformat()
@@ -90,8 +91,12 @@ class WhoamiCommand(TyperCommand):
             formatter.output(result)
 
     @staticmethod
-    def _decode_jwt_unverified(token: str) -> dict:
-        """Decode JWT payload without verification."""
+    def _decode_jwt_unverified(token: str) -> Dict[str, Any]:
+        """Decode JWT payload without verification.
+
+        WARNING: This is intentionally unverified — used only for display
+        purposes (whoami). Never use for authz decisions.
+        """
         parts = token.split(".")
         if len(parts) != 3:
             return {}

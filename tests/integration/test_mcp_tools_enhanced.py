@@ -69,7 +69,8 @@ class TestMCPServerToolsMocked:
         result = await mcp.call_tool("devices_create", {
             "ip": "192.168.1.1",
             "name": "new-router",
-            "platform": "cisco_ios"
+            "platform": "cisco_ios",
+            "vault": "default"
         })
 
         assert "created" in result[0][0].text.lower()
@@ -168,13 +169,12 @@ class TestMCPToolParameters:
 
         result = await mcp.call_tool("devices_list", {
             "json_output": True,
-            "limit": 50,
             "tag": "production"
         })
 
         assert result is not None
         args = mock_run_command.call_args[0][0]
-        assert "--limit" in args or "50" in str(args)
+        assert "--tag" in args and "production" in args
 
     @patch('netpicker_cli.mcp.server.run_netpicker_command')
     @pytest.mark.asyncio
@@ -230,18 +230,11 @@ class TestMCPErrorHandling:
     @pytest.mark.asyncio
     async def test_tool_with_invalid_parameters(self, mock_run_command):
         """Test tool with invalid parameter types"""
-        mock_run_command.return_value = {
-            "stdout": "",
-            "stderr": "Invalid limit value",
-            "returncode": 1,
-            "success": False
-        }
+        from mcp.server.fastmcp.exceptions import ToolError
 
-        # Pass string where number expected
-        result = await mcp.call_tool("devices_list", {"limit": "invalid"})
-
-        # Should handle gracefully
-        assert result is not None
+        # Pass string where number expected — Pydantic rejects it
+        with pytest.raises(ToolError):
+            await mcp.call_tool("devices_list", {"limit": "invalid"})
 
 
 class TestMCPCommandConstruction:
@@ -287,7 +280,7 @@ class TestMCPCommandConstruction:
     @patch('netpicker_cli.mcp.server.run_netpicker_command')
     @pytest.mark.asyncio
     async def test_json_string_parameters(self, mock_run_command):
-        """Test handling of JSON string parameters"""
+        """Test handling of string parameters passed to automation jobs"""
         mock_run_command.return_value = {
             "stdout": "Success",
             "stderr": "",
@@ -295,15 +288,19 @@ class TestMCPCommandConstruction:
             "success": True
         }
 
-        variables_json = '{"key1": "value1", "key2": "value2"}'
+        # Variables must be passed as a plain string (not JSON-parseable)
+        # because FastMCP auto-parses JSON strings into dicts, which would
+        # fail pydantic validation against the Optional[str] type annotation.
         await mcp.call_tool("automation_execute_job", {
             "name": "test-job",
-            "variables": variables_json
+            "variables": "key1=value1,key2=value2",
+            "devices": "192.168.1.1"
         })
 
         args = mock_run_command.call_args[0][0]
-        # JSON should be passed as parameter
-        assert any("key1" in str(arg) for arg in args) or "--fixtures" in args
+        # Variables string should be passed through via --fixtures flag
+        assert "--fixtures" in args
+        assert any("key1" in str(arg) for arg in args)
 
 
 class TestRunNetpickerCommandMocked:

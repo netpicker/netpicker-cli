@@ -59,7 +59,7 @@ class TestEmptyResponses:
     @respx.mock
     def test_null_items_in_response(self, runner, mock_settings):
         """Test handling null items in API response"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             json={"items": None}
         )
 
@@ -72,7 +72,7 @@ class TestEmptyResponses:
     @respx.mock
     def test_missing_items_key(self, runner, mock_settings):
         """Test response missing 'items' key"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             json={}
         )
 
@@ -89,7 +89,7 @@ class TestMalformedJSON:
     @respx.mock
     def test_invalid_json_syntax(self, runner, mock_settings):
         """Test handling invalid JSON syntax"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             text="{invalid json syntax"
         )
 
@@ -102,7 +102,7 @@ class TestMalformedJSON:
     @respx.mock
     def test_plain_text_instead_of_json(self, runner, mock_settings):
         """Test handling plain text instead of JSON"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             text="This is plain text, not JSON"
         )
 
@@ -115,7 +115,7 @@ class TestMalformedJSON:
     @respx.mock
     def test_incomplete_json_object(self, runner, mock_settings):
         """Test handling incomplete JSON object"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             text='{"items": [{"name": "router1", "ip":'
         )
 
@@ -129,7 +129,7 @@ class TestMalformedJSON:
     def test_wrong_json_structure(self, runner, mock_settings):
         """Test handling wrong JSON structure"""
         # Return array instead of object
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             json=["router1", "router2"]  # Should be object with 'items'
         )
 
@@ -159,7 +159,7 @@ class TestHTTPErrors:
     @respx.mock
     def test_401_unauthorized(self, runner, mock_settings):
         """Test handling 401 Unauthorized"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             status_code=401
         )
 
@@ -172,7 +172,7 @@ class TestHTTPErrors:
     @respx.mock
     def test_500_internal_server_error(self, runner, mock_settings):
         """Test handling 500 Internal Server Error"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             status_code=500
         )
 
@@ -185,7 +185,7 @@ class TestHTTPErrors:
     @respx.mock
     def test_429_rate_limit(self, runner, mock_settings):
         """Test handling 429 Rate Limit"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             status_code=429,
             headers={"Retry-After": "60"}
         )
@@ -203,7 +203,7 @@ class TestNetworkErrors:
     def test_connection_timeout(self, runner, mock_settings):
         """Test handling connection timeout"""
         import httpx
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").mock(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").mock(
             side_effect=httpx.TimeoutException("Connection timed out")
         )
 
@@ -216,7 +216,7 @@ class TestNetworkErrors:
     def test_connection_refused(self, runner, mock_settings):
         """Test handling connection refused"""
         import httpx
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").mock(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").mock(
             side_effect=httpx.ConnectError("Connection refused")
         )
 
@@ -229,7 +229,7 @@ class TestNetworkErrors:
     def test_dns_resolution_failure(self, runner, mock_settings):
         """Test handling DNS resolution failure"""
         import httpx
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").mock(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").mock(
             side_effect=httpx.ConnectError("DNS resolution failed")
         )
 
@@ -245,7 +245,7 @@ class TestDataIntegrity:
     @respx.mock
     def test_missing_required_fields(self, runner, mock_settings):
         """Test handling missing required fields in response"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             json={"items": [{"name": "router1"}]}  # Missing 'ipaddress'
         )
 
@@ -258,7 +258,7 @@ class TestDataIntegrity:
     @respx.mock
     def test_wrong_data_types(self, runner, mock_settings):
         """Test handling wrong data types in response"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             json={"items": [{"name": 12345, "ipaddress": True}]}  # Wrong types
         )
 
@@ -271,7 +271,7 @@ class TestDataIntegrity:
     @respx.mock
     def test_null_values_in_fields(self, runner, mock_settings):
         """Test handling null values in response fields"""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant/").respond(
+        respx.get("https://api.example.com/api/v1/devices/test-tenant").respond(
             json={"items": [{"name": None, "ipaddress": "192.168.1.1"}]}
         )
 

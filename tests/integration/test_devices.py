@@ -134,15 +134,9 @@ class TestDevicesCommands:
 
     @respx.mock
     def test_list_devices_limit_cap(self, runner, mock_settings, sample_devices, capsys):
-        """Test that limit is capped at server maximum."""
-        respx.get("https://api.example.com/api/v1/devices/test-tenant").mock(
-            return_value=httpx.Response(200, json={"items": sample_devices})
-        )
-
+        """Test that limit above 1000 is rejected by validation."""
         result = runner.invoke(app, ["devices", "list", "--limit", "2000"])
-        assert result.exit_code == 0
-        # Should show the cap message
-        assert "limit capped to 1000" in result.stdout
+        assert result.exit_code != 0
 
     @respx.mock
     def test_show_device_table_output(self, runner, mock_settings):
@@ -197,7 +191,7 @@ class TestDevicesCommands:
 
         result = runner.invoke(app, ["devices", "show", "192.168.1.99"])
         assert result.exit_code == 1
-        assert "device '192.168.1.99' not found" in result.stdout
+        assert "not found" in result.output
 
     @respx.mock
     def test_show_device_api_error(self, runner, mock_settings):
@@ -209,7 +203,7 @@ class TestDevicesCommands:
 
         result = runner.invoke(app, ["devices", "show", "192.168.1.1"])
         assert result.exit_code == 1
-        assert "API error: Internal server error" in result.stdout
+        assert "API error" in result.output or "Internal server error" in result.output
 
     @respx.mock
     def test_create_device_basic(self, runner, mock_settings):

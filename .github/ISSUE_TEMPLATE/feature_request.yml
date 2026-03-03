@@ -1,0 +1,87 @@
+name: "Feature Request"
+description: "Suggest a new feature or improvement for netpicker-cli"
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to suggest a feature! Please fill out the sections below so we can understand and prioritise your request.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: "Problem or Use Case"
+      description: "What problem does this feature solve? What workflow are you trying to improve?"
+      placeholder: |
+        Example: "Every morning I manually SSH into 10 devices to check uptime, then paste the results into a spreadsheet. This takes 20 minutes and I often miss a device."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: "Proposed Solution"
+      description: "Describe what you'd like the feature to do. Include example CLI commands or output if possible."
+      placeholder: |
+        Example:
+        ```
+        netpicker audit report --include-uptime
+        ```
+        This would add an "uptime" section to the audit report showing devices with uptime > 90 days.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: "Alternatives Considered"
+      description: "Have you tried any workarounds? Are there other tools that do this?"
+      placeholder: "I currently use a custom Nornir script, but it requires maintaining inventory files separately."
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: "Component"
+      description: "Which part of netpicker-cli does this relate to?"
+      options:
+        - "CLI commands (devices, backups, compliance, audit, etc.)"
+        - "API client (httpx, auth, retry logic)"
+        - "Output formatting (table, JSON, CSV, YAML)"
+        - "MCP server (AI assistant integration)"
+        - "Plugin system (register_section, extensibility)"
+        - "Configuration (settings, env vars, keyring)"
+        - "Documentation"
+        - "Other / not sure"
+    validations:
+      required: true
+
+  - type: dropdown
+    id: impact
+    attributes:
+      label: "How many people would this help?"
+      options:
+        - "Just me (niche use case)"
+        - "My team (5-20 people)"
+        - "Most netpicker-cli users"
+        - "All network engineers"
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: "Additional Context"
+      description: "Screenshots, log output, links to related issues, or anything else that helps explain the request."
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: "Contribution"
+      options:
+        - label: "I'm willing to submit a PR for this feature"
+          required: false

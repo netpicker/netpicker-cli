@@ -1,14 +1,17 @@
 import functools
 from contextlib import contextmanager
-from typing import Callable, Any, Iterator, Tuple
+from typing import Any, Callable, Iterator, Tuple, TypeVar
+
 import typer
 
-from .config import load_settings
+from .config import Settings, load_settings
 from ..api.client import ApiClient
 from ..api.errors import ApiError
 
+F = TypeVar("F", bound=Callable[..., Any])
 
-def handle_api_errors(func: Callable[..., Any]) -> Callable[..., Any]:
+
+def handle_api_errors(func: F) -> F:
     """Decorator to standardize API error handling across commands.
 
     - Preserves original function signature via functools.wraps
@@ -17,7 +20,7 @@ def handle_api_errors(func: Callable[..., Any]) -> Callable[..., Any]:
     - Catches all other Exceptions and prints an unexpected error message
     """
     @functools.wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
         try:
             return func(*args, **kwargs)
         except typer.Exit:
@@ -28,11 +31,11 @@ def handle_api_errors(func: Callable[..., Any]) -> Callable[..., Any]:
         except Exception as e:
             typer.echo(f"Unexpected error: {e}")
             raise typer.Exit(code=1)
-    return wrapper
+    return wrapper  # type: ignore[return-value]
 
 
 @contextmanager
-def with_client() -> Iterator[Tuple[Any, ApiClient]]:
+def with_client() -> Iterator[Tuple[Settings, ApiClient]]:
     """Context manager to load settings and provide an ApiClient.
 
     Usage:
@@ -44,5 +47,4 @@ def with_client() -> Iterator[Tuple[Any, ApiClient]]:
     try:
         yield s, cli
     finally:
-        # ApiClient currently does not require explicit close
-        pass
+        cli.close()

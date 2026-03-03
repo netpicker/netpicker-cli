@@ -106,7 +106,7 @@ class TestBackupsCommands:
         )
 
         with mock.patch("netpicker_cli.commands.backups.load_settings", return_value=mock_settings):
-            result = runner.invoke(app, ["backups", "list", "--ip", "192.168.1.1"])
+            result = runner.invoke(app, ["backups", "list", "192.168.1.1"])
 
         assert result.exit_code == 0
         assert "config-123" in result.output
@@ -131,7 +131,7 @@ class TestBackupsCommands:
         )
 
         with mock.patch("netpicker_cli.commands.backups.load_settings", return_value=mock_settings):
-            result = runner.invoke(app, ["backups", "list", "--ip", "192.168.1.1", "--json"])
+            result = runner.invoke(app, ["backups", "list", "192.168.1.1", "--json"])
 
         assert result.exit_code == 0
         assert '"id": "config-123"' in result.output
@@ -146,8 +146,8 @@ class TestBackupsCommands:
 
         with mock.patch("netpicker_cli.commands.backups.load_settings", return_value=mock_settings):
             result = runner.invoke(app, [
-                "backups", "fetch",
-                "--ip", "192.168.1.1",
+                "backups", "download",
+                "192.168.1.1",
                 "--id", "config-123",
                 "--output", str(tmp_path)
             ])
@@ -165,15 +165,21 @@ class TestBackupsCommands:
     def test_search_configs_success(self, runner, mock_settings):
         """Test searching configs successfully"""
         search_data = {
-            "items": [
+            "results": [
                 {
-                    "name": "router1",
-                    "ipaddress": "192.168.1.1",
-                    "id": "config-123",
-                    "created_at": "2026-01-05T10:00:00Z",
-                    "size": 1024
+                    "device": {
+                        "name": "router1",
+                        "ipaddress": "192.168.1.1"
+                    },
+                    "matches": [
+                        {
+                            "line_number": 5,
+                            "content": "hostname router1"
+                        }
+                    ]
                 }
-            ]
+            ],
+            "debug_logs": []
         }
         respx.get("https://api.example.com/api/v1/devices/test-tenant/search-configs/").respond(
             json=search_data
@@ -384,7 +390,7 @@ class TestBackupsCommands:
         )
 
         with mock.patch("netpicker_cli.commands.backups.load_settings", return_value=mock_settings):
-            result = runner.invoke(app, ["backups", "diff", "--ip", "192.168.1.1"])
+            result = runner.invoke(app, ["backups", "diff", "192.168.1.1"])
 
         assert result.exit_code == 0
         assert "@@" in result.output  # Unified diff format
@@ -407,7 +413,7 @@ class TestBackupsCommands:
         with mock.patch("netpicker_cli.commands.backups.load_settings", return_value=mock_settings):
             result = runner.invoke(app, [
                 "backups", "diff",
-                "--ip", "192.168.1.1",
+                "192.168.1.1",
                 "--id-a", "config-1",
                 "--id-b", "config-2"
             ])

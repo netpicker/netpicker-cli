@@ -39,7 +39,6 @@ def _invoke_callback(cb, *args, **kwargs) -> None:
     except Exception:
         # Swallow callback exceptions to avoid breaking primary command flow
         pass
-from ..utils.output import OutputFormatter, OutputFormat
 
 app = typer.Typer(add_completion=False)
 

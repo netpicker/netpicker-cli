@@ -8,6 +8,7 @@ A comprehensive command-line interface for Netpicker API — empowering network 
 - **Backup Operations**: Upload, download, search, and compare device configurations
 - **Compliance Management**: Create policies, add rules, run compliance checks, and generate reports
 - **Automation**: Execute jobs, manage queues, store and test automation scripts
+- **Audit Report**: One-command network health report — inventory, compliance, backup freshness, and policy status
 - **MCP Server**: Integrate with AI assistants like Claude for natural language network management
 - **Health Monitoring**: System status checks and user authentication verification
 
@@ -462,6 +463,99 @@ netpicker automation review-queue 987654321098765432 --approved true
 # Export job list as JSON
 netpicker automation list-jobs --format json > jobs.json
 ```
+
+---
+
+## 📊 Audit Report
+
+Generate a full network health report with a single command — combining device inventory, compliance posture, backup freshness, and policy status. Ideal for morning stand-ups, weekly reviews, and management reports.
+
+### Command
+
+```bash
+netpicker audit report [--tag TAG] [--stale-days N] [--parallel/--no-parallel] [--format FORMAT] [--output FILE]
+```
+
+### Examples
+
+```bash
+# Quick health check (table output)
+netpicker audit report
+
+# Filter to production devices only
+netpicker audit report --tag production
+
+# Machine-readable JSON for CI/CD pipelines
+netpicker audit report --format json
+
+# Save Monday morning report to file
+netpicker audit report --format json --output monday-report.json
+
+# Stricter backup freshness (flag anything older than 3 days)
+netpicker audit report --stale-days 3
+
+# CSV export for spreadsheet analysis
+netpicker audit report --format csv --output audit.csv
+
+# Disable parallel fetching (useful for debugging)
+netpicker audit report --no-parallel
+```
+
+### Sample Output
+
+```
+  NetPicker Audit Report — tenant: production
+  Tag filter: production
+  Generated: 2026-02-28T09:00:00+00:00
+  Overall status: [WARN]
+
+  [OK] INVENTORY
+      total_devices: 47
+      platforms:
+        cisco_ios: 28
+        arista_eos: 12
+        fortios: 7
+
+  [WARN] COMPLIANCE
+      devices:
+        passed: 42
+        failed: 5
+      policies:
+        enabled: 3
+        disabled: 1
+
+  [WARN] BACKUPS
+      total_recent: 47
+      fresh: 44
+      stale: 2
+      errored: 1
+      stale_threshold_days: 7
+      Stale devices (>7d):
+        10.0.1.5 (edge-rtr-05) — last backup 12d ago
+        10.0.2.3 (branch-sw-03) — last backup 9d ago
+
+  [OK] POLICIES
+      total: 4
+      enabled: 3
+      disabled: 1
+
+  Tip: use --format json for machine-readable output
+```
+
+### Plugin Support
+
+Custom audit sections can be registered for extensibility:
+
+```python
+from netpicker_cli.commands.audit import register_section, AuditSection
+
+@register_section
+def check_firmware(cli, settings, options):
+    # Your custom logic here
+    return AuditSection(name="firmware", summary={"outdated": 2}, status="warning")
+```
+
+See [examples/audit_report.py](examples/audit_report.py) for a complete example.
 
 ---
 

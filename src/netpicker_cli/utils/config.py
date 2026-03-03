@@ -5,7 +5,7 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Dict, Optional
+from typing import Any, Dict, Optional, Union
 
 
 # Config file location: ~/.config/netpicker/config.json
@@ -26,7 +26,7 @@ class Settings:
     use_proxy: bool = False
 
     @property
-    def ssl_verify(self):
+    def ssl_verify(self) -> Union[bool, str]:
         """
         Return the appropriate value for httpx's ``verify`` parameter.
 
@@ -64,7 +64,6 @@ class Settings:
 
         return {
             "Authorization": f"Bearer {token}",
-            "Content-Type": "application/json",
         }
 
 
@@ -129,6 +128,17 @@ def load_settings() -> Settings:
     verbose = _env_bool("NETPICKER_VERBOSE", default=False)
     quiet = _env_bool("NETPICKER_QUIET", default=False)
 
+    if not base:
+        raise SystemExit(
+            "No base URL configured. "
+            "Set NETPICKER_BASE_URL or run: netpicker auth login --base-url <URL> --tenant <TENANT> --token <TOKEN>"
+        )
+    if not tenant:
+        raise SystemExit(
+            "No tenant configured. "
+            "Set NETPICKER_TENANT or run: netpicker auth login --base-url <URL> --tenant <TENANT> --token <TOKEN>"
+        )
+
     return Settings(
         base_url=base,
         tenant=tenant,
@@ -159,6 +169,12 @@ def save_config(base_url: str, tenant: str, token: str | None) -> bool:
         "tenant": tenant,
     }
     CONFIG_FILE.write_text(json.dumps(config_data, indent=2))
+
+    # Restrict permissions so other users can't read credentials.
+    try:
+        CONFIG_FILE.chmod(0o600)
+    except OSError:
+        pass  # Windows or restricted filesystem
     
     # Try to save token to keyring
     keyring_saved = False

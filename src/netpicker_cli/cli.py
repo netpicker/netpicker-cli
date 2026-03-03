@@ -1,6 +1,6 @@
 import typer
 from . import __version__
-from .commands import auth, backups, devices, compliance, compliance_policy, automation
+from .commands import auth, audit, backups, devices, compliance, compliance_policy, automation
 from .commands.health import do_health
 from .commands.whoami import whoami
 from .utils.logging import setup_logging
@@ -49,8 +49,9 @@ def health(ctx: typer.Context):
 app.command("whoami", help="Display current user information")(whoami)
 
 app.add_typer(auth.app, name="auth", help="Authentication commands")
-app.add_typer(backups.app, name="backups", help="Backup and config operations")
+app.add_typer(audit.app, name="audit", help="Network health audit report")
 app.add_typer(devices.app, name="devices", help="List and manage devices")
+app.add_typer(backups.app, name="backups", help="Backup and config operations")
 app.add_typer(compliance.app, name="compliance", help="Compliance checks and reports")
 app.add_typer(compliance_policy.app, name="policy", help="Compliance policy management")
 app.add_typer(automation.app, name="automation", help="Automation commands")

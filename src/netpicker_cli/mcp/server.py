@@ -501,6 +501,37 @@ async def compliance_devices(ip: Optional[str] = None, policy: Optional[str] = N
         return f"Command failed: {result['stderr'].strip()}"
 
 
+@mcp.tool()
+async def audit_report(tag: Optional[str] = None, stale_days: int = 7, json_output: bool = True) -> str:
+    """Generate a full network health audit report.
+
+    Combines device inventory, compliance posture, backup freshness, and
+    policy status into a single report. Ideal for quick health checks.
+
+    Args:
+        tag: Filter devices by tag (e.g., "production")
+        stale_days: Days after which a backup is considered stale (default: 7)
+        json_output: Return JSON output (default: True for AI-readable output)
+
+    Returns:
+        Audit report combining inventory, compliance, backups, and policies
+    """
+    args = ["audit", "report", "--no-parallel"]
+    if tag:
+        args.extend(["--tag", tag])
+    if stale_days != 7:
+        args.extend(["--stale-days", str(stale_days)])
+    if json_output:
+        args.extend(["--format", "json"])
+
+    result = await asyncio.get_event_loop().run_in_executor(None, run_netpicker_command, args)
+
+    if result["success"]:
+        return result["stdout"].strip() or "No audit data available"
+    else:
+        return f"Command failed: {result['stderr'].strip()}"
+
+
 def main():
     """Main entry point for the MCP server."""
     import asyncio

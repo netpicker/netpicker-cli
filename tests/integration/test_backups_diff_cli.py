@@ -50,7 +50,7 @@ def test_backups_diff_latest_two(monkeypatch):
         return_value=Response(200, content=b"host r1\nline B\n")
     )
 
-    r = runner.invoke(app, ["backups","diff","--ip","r1"])
+    r = runner.invoke(app, ["backups","diff","r1"])
     assert r.exit_code == 0
     assert "-line A" in r.stdout
     assert "+line B" in r.stdout

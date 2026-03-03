@@ -12,6 +12,7 @@ from ..utils.validation import validate_tag, validate_limit, validate_offset
 from ..utils.output import OutputFormatter, OutputFormat
 from ..utils.helpers import extract_items_from_response, filter_items_by_tag, format_tags_for_display
 from ..utils.cache import get_session_cache
+from ..utils.progress import page_progress
 
 app = typer.Typer(add_completion=False)
 
@@ -95,7 +96,7 @@ def list_devices(
                         while not stop:
                             # build a batch of pages
                             batch_pages = [cur_page + i for i in range(parallel)]
-                            tasks = [async_client.post(f"/api/v1/devices/{s.tenant}/by_tags", json={"tags": [tag], "size": limit, "page": p}) for p in batch_pages]
+                            tasks = [async_client.post(f"/api/v1/devices/{s.tenant}/by_tags", json=[tag], params={"size": limit, "page": p}) for p in batch_pages]
                             responses = await asyncio.gather(*tasks, return_exceptions=True)
                             for resp in responses:
                                 if isinstance(resp, Exception):
@@ -115,7 +116,7 @@ def list_devices(
             else:
                 resp = cli.post(
                     f"/api/v1/devices/{s.tenant}/by_tags",
-                    json={"tags": [tag], "size": limit, "page": page},
+                    json=[tag], params={"size": limit, "page": page},
                 ).json()
                 items = extract_items_from_response(resp)
                 if all_:
@@ -127,7 +128,7 @@ def list_devices(
                         page += 1
                         resp = cli.post(
                             f"/api/v1/devices/{s.tenant}/by_tags",
-                            json={"tags": [tag], "size": limit, "page": page},
+                            json=[tag], params={"size": limit, "page": page},
                         ).json()
                         items = extract_items_from_response(resp)
                 else:
@@ -190,14 +191,17 @@ def list_devices(
                 items = extract_items_from_response(payload)
 
                 if all_:
-                    while True:
-                        collected.extend(items)
-                        # stop when the page isn't full (simple heuristic)
-                        if len(items) < limit:
-                            break
-                        page += 1
-                        payload = page_fetch(page, limit)
-                        items = extract_items_from_response(payload)
+                    is_structured = format in ("json", "csv", "yaml")
+                    with page_progress("Fetching devices", quiet=is_structured) as tick:
+                        tick(len(items))
+                        while True:
+                            collected.extend(items)
+                            if len(items) < limit:
+                                break
+                            page += 1
+                            payload = page_fetch(page, limit)
+                            items = extract_items_from_response(payload)
+                            tick(len(items))
                 else:
                     collected = items
         except Exception:

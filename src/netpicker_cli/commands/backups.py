@@ -482,7 +482,11 @@ def upload_config(
         "content": content,
         "changed": changed,
     }
-    data = cli.post(f"/api/v1/devices/{s.tenant}/{ip}/configs", json=payload).json()
+    data = cli.post_file(
+        f"/api/v1/devices/{s.tenant}/{ip}/configs",
+        filename=file if file != "-" else "config.txt",
+        content=content,
+    ).json()
     if json_out:
         import json as _json
         print(_json.dumps(data, indent=2))

@@ -270,7 +270,7 @@ def create_policy(
         payload["id"] = policy_id
     
     try:
-        data = cli.post(f"/api/v1/policy/{s.tenant}", payload).json()
+        data = cli.post(f"/api/v1/policy/{s.tenant}/", payload).json()
     except ApiError as e:
         typer.echo(f"API error: {e}")
         raise typer.Exit(code=1)

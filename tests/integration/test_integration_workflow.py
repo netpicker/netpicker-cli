@@ -126,7 +126,7 @@ end
 
         # Step 4: Create compliance policy
         policy_create_response = sample_policy.copy()
-        respx.post("https://api.example.com/api/v1/policy/test-tenant").mock(
+        respx.post("https://api.example.com/api/v1/policy/test-tenant/").mock(
             return_value=httpx.Response(201, json=policy_create_response)
         )
 
@@ -282,7 +282,7 @@ end
 
         result = runner.invoke(app, ["devices", "show", "192.168.1.999"])
         assert result.exit_code == 1
-        assert "not found" in result.stdout
+        assert "not found" in result.output
 
         # Try to upload config for non-existent device
         respx.post("https://api.example.com/api/v1/devices/test-tenant/192.168.1.999/configs").mock(
