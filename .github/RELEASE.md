@@ -41,12 +41,18 @@ pytest tests/unit/ -q
 
 Fix any failures before proceeding.
 
-### 3. Update `pyproject.toml`
+### 3. Update version in TWO places
 
-Edit the `version` field:
+**CRITICAL**: Update the version in **both** files:
 
+1. `pyproject.toml` line 3:
 ```toml
 version = "0.2.1"   # ← new version
+```
+
+2. `src/netpicker_cli/__init__.py` line 2:
+```python
+__version__ = "0.2.1"   # ← must match pyproject.toml
 ```
 
 ### 4. Update `CHANGELOG.md`
@@ -63,7 +69,7 @@ Add a new section at the top (below the `# Changelog` heading):
 ### 5. Commit and tag
 
 ```bash
-git add pyproject.toml CHANGELOG.md
+git add pyproject.toml src/netpicker_cli/__init__.py CHANGELOG.md
 git commit -m "chore: release v0.2.1"
 git tag v0.2.1
 git push origin main --tags
@@ -162,8 +168,8 @@ VERSION="0.2.1"
 source venv/bin/activate
 # -----------------------------------
 
-# Update version manually in pyproject.toml first, then:
-git add pyproject.toml CHANGELOG.md
+# Update version manually in BOTH pyproject.toml AND src/netpicker_cli/__init__.py, then:
+git add pyproject.toml src/netpicker_cli/__init__.py CHANGELOG.md
 git commit -m "chore: release v${VERSION}"
 git tag "v${VERSION}"
 git push origin main --tags

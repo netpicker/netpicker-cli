@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1 — 2026-03-04
+
+### Fixed
+- Fixed version string mismatch: `__version__` in `__init__.py` now matches package version
+
 ## 0.2.0 — Audit Report & Code Hardening
 
 ### New Feature: `netpicker audit report`
