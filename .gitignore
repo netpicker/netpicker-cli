@@ -33,3 +33,6 @@ sample.json
 
 # Test artifacts
 test_mistral_integration.py
+
+# Process
+.github/skills/
