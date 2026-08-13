@@ -44,7 +44,7 @@ def ensure_auth():
             "Not authenticated — run `netpicker auth login` first.\n"
             f"  output: {result.output}"
         )
-    return json.loads(result.output)
+    return json.loads(result.stdout)
 
 
 @pytest.fixture(scope="module")
@@ -56,7 +56,7 @@ def backed_up_device(ensure_auth):
     """
     result = runner.invoke(app, ["backups", "recent", "--format", "json"])
     assert result.exit_code == 0, f"backups recent failed:\n{result.output}"
-    items = json.loads(result.output)
+    items = json.loads(result.stdout)
 
     for it in items:
         err = it.get("readout_error")
@@ -82,7 +82,7 @@ class TestLiveBackupWorkflow:
         """backups recent should return at least one entry."""
         result = runner.invoke(app, ["backups", "recent", "--format", "json"])
         assert result.exit_code == 0, f"recent failed:\n{result.output}"
-        items = json.loads(result.output)
+        items = json.loads(result.stdout)
         assert len(items) > 0, "no recent backups returned"
 
     def test_02_recent_table_format(self, ensure_auth):
@@ -101,7 +101,7 @@ class TestLiveBackupWorkflow:
             "backups", "list", ip, "--format", "json",
         ])
         assert result.exit_code == 0, f"list failed:\n{result.output}"
-        configs = json.loads(result.output)
+        configs = json.loads(result.stdout)
         assert len(configs) > 0, f"no configs returned for {ip}"
         # Each config should have an id
         assert configs[0].get("id"), "config entry missing 'id' field"
@@ -154,7 +154,7 @@ class TestLiveBackupWorkflow:
                 "--json",
             ])
             assert result.exit_code == 0, f"upload failed:\n{result.output}"
-            data = json.loads(result.output)
+            data = json.loads(result.stdout)
             # Response should contain a config dict with an id
             cfg = data.get("config", data)
             assert cfg.get("id") or cfg.get("config_id"), (
@@ -195,7 +195,7 @@ class TestLiveBackupWorkflow:
             "backups", "list", ip, "--format", "json",
         ])
         assert result.exit_code == 0
-        configs = json.loads(result.output)
+        configs = json.loads(result.stdout)
         assert len(configs) > 0
         # Most recent config should be first (or last, depending on sort)
         # Just verify the list grew — we can't easily check exact id
@@ -209,7 +209,7 @@ class TestLiveBackupWorkflow:
             "backups", "search", "--format", "json",
         ])
         assert result.exit_code == 0, f"search failed:\n{result.output}"
-        items = json.loads(result.output)
+        items = json.loads(result.stdout)
         assert isinstance(items, list), f"expected list, got {type(items)}"
         # Should return some results from recent configs
         assert len(items) > 0, "search with no filter returned no results"
@@ -221,7 +221,7 @@ class TestLiveBackupWorkflow:
             "backups", "search", "--device", ip, "--format", "json",
         ])
         assert result.exit_code == 0, f"search --device failed:\n{result.output}"
-        items = json.loads(result.output)
+        items = json.loads(result.stdout)
         assert isinstance(items, list)
         assert len(items) > 0, f"search --device {ip} returned no results"
 
@@ -238,7 +238,7 @@ class TestLiveBackupWorkflow:
         """backups commands --json should return platform command templates."""
         result = runner.invoke(app, ["backups", "commands", "--json"])
         assert result.exit_code == 0, f"commands --json failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         # Should be a dict (platform -> commands) or a list
         assert isinstance(data, (dict, list)), f"unexpected type: {type(data)}"
         if isinstance(data, dict):
@@ -260,7 +260,7 @@ class TestLiveBackupWorkflow:
         # First get all commands to find a valid platform name
         result = runner.invoke(app, ["backups", "commands", "--json"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
 
         # Extract a platform name
         platform = None
@@ -286,7 +286,7 @@ class TestLiveBackupWorkflow:
             "backups", "history", ip, "--json",
         ])
         assert result.exit_code == 0, f"history --json failed:\n{result.output}"
-        items = json.loads(result.output)
+        items = json.loads(result.stdout)
         assert isinstance(items, list), f"expected list, got {type(items)}"
         assert len(items) > 0, f"no history entries for {ip}"
 
@@ -304,7 +304,7 @@ class TestLiveBackupWorkflow:
             "backups", "history", ip, "--limit", "2", "--json",
         ])
         assert result.exit_code == 0, f"history --limit failed:\n{result.output}"
-        items = json.loads(result.output)
+        items = json.loads(result.stdout)
         assert isinstance(items, list)
         # The --limit flag is passed to the server; some API versions don't
         # enforce it server-side.  We just verify the call succeeds and

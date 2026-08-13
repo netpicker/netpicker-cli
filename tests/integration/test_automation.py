@@ -200,6 +200,37 @@ class TestAutomationCommands:
         logs_data = {
             "items": [
                 {
+                    "batch_id": "batch-abc",
+                    "job_name": "test_job",
+                    "initiator": "user@example.com",
+                    "status_counts": {"SUCCESS": 1},
+                    "created": "2026-01-05T17:41:35.195Z"
+                }
+            ],
+            "total": 1,
+            "page": 1,
+            "size": 50,
+            "pages": 1
+        }
+        respx.get("https://api.example.com/api/v1/automation/test-tenant/logs").respond(
+            json=logs_data
+        )
+
+        with mock.patch("netpicker_cli.commands.automation.load_settings", return_value=mock_settings):
+            result = runner.invoke(app, ["automation", "logs"])
+
+        assert result.exit_code == 0
+        assert "Job Log Batches" in result.output
+        assert "batch-abc" in result.output
+        assert "test_job" in result.output
+        assert "SUCCESS:1" in result.output
+
+    @respx.mock
+    def test_logs_by_batch_id(self, runner, mock_settings):
+        """Test drilling into the individual executions of a batch"""
+        batch_data = {
+            "items": [
+                {
                     "id": "log-123",
                     "job_name": "test_job",
                     "job_id": "job-456",
@@ -220,16 +251,17 @@ class TestAutomationCommands:
             "size": 50,
             "pages": 1
         }
-        respx.get("https://api.example.com/api/v1/automation/test-tenant/logs").respond(
-            json=logs_data
+        respx.get("https://api.example.com/api/v1/automation/test-tenant/logs/batch-abc").respond(
+            json=batch_data
         )
 
         with mock.patch("netpicker_cli.commands.automation.load_settings", return_value=mock_settings):
-            result = runner.invoke(app, ["automation", "logs"])
+            result = runner.invoke(app, ["automation", "logs", "--batch-id", "batch-abc"])
 
         assert result.exit_code == 0
         assert "Job Logs" in result.output
-        assert "test_job" in result.output
+        assert "log-123" in result.output
+        assert "10.10.10.1" in result.output
         assert "SUCCESS" in result.output
 
     @respx.mock
@@ -276,7 +308,7 @@ class TestAutomationCommands:
             "status": "SUCCESS",
             "created": "2026-01-05T17:41:35.195Z"
         }
-        respx.get("https://api.example.com/api/v1/automation/test-tenant/logs/log-123").respond(
+        respx.get("https://api.example.com/api/v1/automation/test-tenant/log/log-123").respond(
             json=log_data
         )
 

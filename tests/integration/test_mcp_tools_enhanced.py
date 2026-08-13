@@ -298,8 +298,8 @@ class TestMCPCommandConstruction:
         })
 
         args = mock_run_command.call_args[0][0]
-        # Variables string should be passed through via --fixtures flag
-        assert "--fixtures" in args
+        # Variables string should be passed through via --variables flag
+        assert "--variables" in args
         assert any("key1" in str(arg) for arg in args)
 
 

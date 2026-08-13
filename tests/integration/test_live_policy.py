@@ -54,7 +54,7 @@ def ensure_auth():
             "Not authenticated — run `netpicker auth login` first.\n"
             f"  output: {result.output}"
         )
-    return json.loads(result.output)
+    return json.loads(result.stdout)
 
 
 @pytest.fixture(scope="module")
@@ -65,7 +65,7 @@ def existing_policy(ensure_auth):
     """
     result = runner.invoke(app, ["policy", "list", "--format", "json", "--no-cache"])
     assert result.exit_code == 0, f"policy list failed:\n{result.output}"
-    policies = json.loads(result.output)
+    policies = json.loads(result.stdout)
     if not policies:
         pytest.skip("No policies in tenant — cannot run read-only policy tests")
     return policies[0]
@@ -82,7 +82,7 @@ def compliant_device(ensure_auth):
     ])
     if result.exit_code != 0 or not result.output.strip():
         pytest.skip("No compliance devices available for test-rule/execute-rules")
-    devices = json.loads(result.output)
+    devices = json.loads(result.stdout)
     if not devices:
         pytest.skip("No compliance devices available")
     return devices[0]
@@ -119,7 +119,7 @@ class TestLivePolicyWorkflow:
             "policy", "list", "--format", "json", "--no-cache",
         ])
         assert result.exit_code == 0, f"list failed:\n{result.output}"
-        policies = json.loads(result.output)
+        policies = json.loads(result.stdout)
         assert isinstance(policies, list)
         assert len(policies) > 0, "no policies returned"
         # Each policy should have at least an id and name
@@ -143,7 +143,7 @@ class TestLivePolicyWorkflow:
             "policy", "show", pid, "--format", "json",
         ])
         assert result.exit_code == 0, f"show failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data.get("id") == pid
 
     def test_04_show_table(self, ensure_auth, existing_policy):
@@ -166,7 +166,7 @@ class TestLivePolicyWorkflow:
             "--format", "json",
         ])
         assert result.exit_code == 0, f"create failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         # Response may be a dict or list
         item = data[0] if isinstance(data, list) else data
         assert item.get("id") == TEST_POLICY_ID or item.get("name") == TEST_POLICY_NAME
@@ -177,7 +177,7 @@ class TestLivePolicyWorkflow:
             "policy", "list", "--format", "json", "--no-cache",
         ])
         assert result.exit_code == 0
-        policies = json.loads(result.output)
+        policies = json.loads(result.stdout)
         ids = [p.get("id") for p in policies]
         assert TEST_POLICY_ID in ids, (
             f"created policy {TEST_POLICY_ID} not found in list"
@@ -200,7 +200,7 @@ class TestLivePolicyWorkflow:
         ])
         # Accept either success (if server is fixed) or graceful error exit
         if result.exit_code == 0:
-            data = json.loads(result.output)
+            data = json.loads(result.stdout)
             item = data[0] if isinstance(data, list) else data
             assert item.get("policy_id") or item.get("id") or "updated" in str(item).lower()
         else:
@@ -216,7 +216,7 @@ class TestLivePolicyWorkflow:
             "policy", "show", TEST_POLICY_ID, "--format", "json",
         ])
         assert result.exit_code == 0, f"policy gone after PATCH attempt:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data.get("id") == TEST_POLICY_ID
 
     # -- 5: Replace (PUT) the policy -----------------------------------------
@@ -231,7 +231,7 @@ class TestLivePolicyWorkflow:
             "--format", "json",
         ])
         assert result.exit_code == 0, f"replace failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         item = data[0] if isinstance(data, list) else data
         assert item.get("policy_id") or item.get("id") or "replaced" in str(item).lower()
 
@@ -241,7 +241,7 @@ class TestLivePolicyWorkflow:
             "policy", "show", TEST_POLICY_ID, "--format", "json",
         ])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data.get("description") == "Replaced by pytest"
 
     # -- 6: Add a rule -------------------------------------------------------
@@ -257,7 +257,7 @@ class TestLivePolicyWorkflow:
             "--format", "json",
         ])
         assert result.exit_code == 0, f"add-rule failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         # Response may be a plain string (the policy_id) or a dict
         if isinstance(data, str):
             assert data == TEST_POLICY_ID or TEST_RULE_NAME in data
@@ -275,7 +275,7 @@ class TestLivePolicyWorkflow:
             "policy", "show", TEST_POLICY_ID, "--format", "json",
         ])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         rules = data.get("rules", []) or []
         rule_names = [r.get("name") for r in rules]
         assert TEST_RULE_NAME in rule_names, (
@@ -299,7 +299,7 @@ class TestLivePolicyWorkflow:
             "--format", "json",
         ])
         assert result.exit_code == 0, f"test-rule failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         # Response should have some structure (result, errors, etc.)
         assert isinstance(data, dict), f"expected dict, got {type(data)}"
 
@@ -319,7 +319,7 @@ class TestLivePolicyWorkflow:
             "policy", "show", TEST_POLICY_ID, "--format", "json",
         ])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         rules = data.get("rules", []) or []
         rule_names = [r.get("name") for r in rules]
         assert TEST_RULE_NAME not in rule_names, (
@@ -334,7 +334,7 @@ class TestLivePolicyWorkflow:
         result = runner.invoke(app, [
             "policy", "list", "--format", "json", "--no-cache",
         ])
-        policies = json.loads(result.output)
+        policies = json.loads(result.stdout)
         enabled = [p for p in policies if p.get("enabled")]
         if not enabled:
             pytest.skip("No enabled policies to execute")

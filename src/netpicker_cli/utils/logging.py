@@ -6,7 +6,12 @@ import typer
 
 
 class TyperHandler(logging.Handler):
-    """Custom logging handler that outputs to typer.echo() for CLI output."""
+    """Custom logging handler that outputs to typer.echo() for CLI output.
+
+    All log records go to stderr so that stdout carries only command output.
+    Machine-readable formats (``--format json`` and friends) would otherwise be
+    corrupted by informational log lines.
+    """
 
     def emit(self, record: logging.LogRecord) -> None:
         try:
@@ -14,11 +19,11 @@ class TyperHandler(logging.Handler):
             # The formatter is still used for verbose mode
             if hasattr(record, '_cli_message'):
                 # This is a direct CLI message, output as-is
-                typer.echo(record.getMessage(), err=(record.levelno >= logging.WARNING))
+                typer.echo(record.getMessage(), err=True)
             else:
                 # This is a structured log message, use full formatting
                 msg = self.format(record)
-                typer.echo(msg, err=(record.levelno >= logging.WARNING))
+                typer.echo(msg, err=True)
         except Exception:
             self.handleError(record)
 
@@ -100,9 +105,14 @@ def log_api_response(status_code: int, response_time: Optional[float] = None) ->
 
 
 def log_error_with_context(error: Exception, context: str = "") -> None:
-    """Log an error with additional context."""
+    """Log an error with additional context.
+
+    Logged at DEBUG because the exception is about to be raised: the command
+    that catches it decides what the user sees. Emitting at ERROR here would
+    print the raw API error alongside the handler's friendly message.
+    """
     context_msg = f" [{context}]" if context else ""
-    logger.error(f"{type(error).__name__}: {error}{context_msg}")
+    logger.debug(f"{type(error).__name__}: {error}{context_msg}")
     if logger.isEnabledFor(logging.DEBUG):
         logger.debug("Full traceback:", exc_info=True)
 

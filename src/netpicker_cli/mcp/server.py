@@ -384,7 +384,7 @@ async def automation_execute_job(name: str, variables: Optional[str] = None, dev
 
     Args:
         name: Job name to execute
-        variables: Variables as JSON string
+        variables: Variables as a CLI-style string such as key:value;other:123
         devices: Target devices (comma-separated)
         tags: Target device tags (comma-separated)
 
@@ -393,7 +393,7 @@ async def automation_execute_job(name: str, variables: Optional[str] = None, dev
     """
     args = ["automation", "execute-job", "--name", name]
     if variables:
-        args.extend(["--fixtures", variables])
+        args.extend(["--variables", variables])
     if devices:
         args.extend(["--devices", devices])
     if tags:

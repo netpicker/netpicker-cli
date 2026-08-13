@@ -1,11 +1,30 @@
 import typer
+from typer.core import TyperGroup
 from . import __version__
+from .api.errors import ApiError
 from .commands import auth, audit, backups, devices, compliance, compliance_policy, automation
 from .commands.health import do_health
 from .commands.whoami import whoami
 from .utils.logging import setup_logging
 
-app = typer.Typer(add_completion=False, no_args_is_help=True)
+
+class NetpickerGroup(TyperGroup):
+    """Reports uncaught API errors as CLI messages instead of tracebacks.
+
+    Commands that handle a failure themselves still do so; this is the
+    fallback so that any unhandled API error reaches the user on stderr
+    with a non-zero exit status.
+    """
+
+    def invoke(self, ctx: typer.Context):
+        try:
+            return super().invoke(ctx)
+        except ApiError as e:
+            typer.secho(f"{type(e).__name__}: {e}", fg=typer.colors.RED, err=True)
+            raise typer.Exit(code=1)
+
+
+app = typer.Typer(add_completion=False, no_args_is_help=True, cls=NetpickerGroup)
 
 
 def version_callback(value: bool):

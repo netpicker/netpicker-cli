@@ -42,7 +42,7 @@ def ensure_auth():
             "Not authenticated — run `netpicker auth login` first.\n"
             f"  output: {result.output}"
         )
-    return json.loads(result.output)
+    return json.loads(result.stdout)
 
 
 @pytest.fixture(scope="module")
@@ -58,7 +58,7 @@ def compliance_device(ensure_auth):
     if result.exit_code != 0:
         pytest.skip(f"compliance devices failed: {result.output}")
 
-    items = json.loads(result.output)
+    items = json.loads(result.stdout)
     for it in items:
         ip = it.get("ipaddress")
         summary = it.get("summary") or {}
@@ -75,7 +75,7 @@ def config_id(ensure_auth):
     if result.exit_code != 0:
         pytest.skip(f"backups recent failed: {result.output}")
 
-    items = json.loads(result.output)
+    items = json.loads(result.stdout)
     for it in items:
         cid = it.get("id") or it.get("config_id")
         if cid and not it.get("readout_error"):
@@ -97,7 +97,7 @@ class TestLiveComplianceWorkflow:
         """compliance overview --format json should return devices/policies dict."""
         result = runner.invoke(app, ["compliance", "overview", "--format", "json"])
         assert result.exit_code == 0, f"overview failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, dict), f"expected dict, got {type(data)}"
         # Should have at least one of 'devices' or 'policies'
         assert "devices" in data or "policies" in data, (
@@ -118,7 +118,7 @@ class TestLiveComplianceWorkflow:
             "compliance", "report-tenant", "--format", "json", "--size", "5",
         ])
         assert result.exit_code == 0, f"report-tenant failed:\n{result.output}"
-        items = json.loads(result.output)
+        items = json.loads(result.stdout)
         assert isinstance(items, list), f"expected list, got {type(items)}"
         assert len(items) > 0, "report-tenant returned no entries"
 
@@ -141,7 +141,7 @@ class TestLiveComplianceWorkflow:
             "--format", "json", "--size", "5",
         ])
         assert result.exit_code == 0, f"report-tenant --outcome failed:\n{result.output}"
-        items = json.loads(result.output)
+        items = json.loads(result.stdout)
         assert isinstance(items, list)
         # All returned items should have outcome SUCCESS (if server honours filter)
         for it in items:
@@ -157,7 +157,7 @@ class TestLiveComplianceWorkflow:
             "compliance", "devices", "--format", "json", "--size", "5",
         ])
         assert result.exit_code == 0, f"devices failed:\n{result.output}"
-        items = json.loads(result.output)
+        items = json.loads(result.stdout)
         assert isinstance(items, list), f"expected list, got {type(items)}"
         assert len(items) > 0, "devices returned no entries"
         # Each item should have ipaddress
@@ -196,7 +196,7 @@ class TestLiveComplianceWorkflow:
             "compliance", "status", ip, "--format", "json",
         ])
         assert result.exit_code == 0, f"status failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, dict), f"expected dict, got {type(data)}"
         assert data.get("ipaddress") == ip, (
             f"status ip mismatch: expected {ip}, got {data.get('ipaddress')}"
@@ -243,7 +243,7 @@ class TestLiveComplianceWorkflow:
             "compliance", "log", "dummy-config-id", "--example",
         ])
         assert result.exit_code == 0, f"log --example failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, dict), f"expected dict, got {type(data)}"
         assert "outcome" in data, "example payload missing 'outcome' field"
         assert "policy" in data, "example payload missing 'policy' field"
@@ -272,7 +272,7 @@ class TestLiveComplianceWorkflow:
             "compliance", "report-config", "dummy-config-id", "--example",
         ])
         assert result.exit_code == 0, f"report-config --example failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, list), f"expected list, got {type(data)}"
         assert len(data) > 0, "example payload is empty"
         assert "outcome" in data[0], "example entry missing 'outcome' field"

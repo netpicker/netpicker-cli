@@ -7,7 +7,7 @@ from ..utils.config import load_settings
 from ..utils.logging import get_logger, output_message
 from ..api.client import ApiClient, AsyncApiClient
 import asyncio
-from ..api.errors import ApiError, NotFound
+from ..api.errors import ApiError, NotFound, Conflict
 from ..utils.validation import validate_tag, validate_limit, validate_offset
 from ..utils.output import OutputFormatter, OutputFormat
 from ..utils.helpers import extract_items_from_response, filter_items_by_tag, format_tags_for_display
@@ -320,7 +320,19 @@ def create_device(
         "tags": [t.strip() for t in tags.split(",")] if tags else [],
     }
     payload = {k: v for k, v in payload.items() if v not in (None, "", [])}
-    data = cli.post(f"/api/v1/devices/{s.tenant}", json=payload).json()
+    
+    try:
+        data = cli.post(f"/api/v1/devices/{s.tenant}", json=payload).json()
+    except Conflict:
+        output_message(f"Device with IP '{ip}' already exists in tenant '{s.tenant}'", "error")
+        raise typer.Exit(code=1)
+    except ApiError as e:
+        output_message(f"Failed to create device: {e}", "error")
+        raise typer.Exit(code=1)
+    except Exception as e:
+        output_message("Unexpected error while creating device:", "error")
+        output_message(str(e), "error")
+        raise typer.Exit(code=1)
     
     if json_out:
         format = "json"

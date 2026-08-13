@@ -396,8 +396,8 @@ netpicker automation store-job-file --name <NAME> --file <FILE>    # Store job f
 netpicker automation show-job <NAME> [--format FORMAT]                      # Show job details
 netpicker automation delete-job <NAME> [--format FORMAT]                    # Delete automation job
 netpicker automation test-job --name <NAME> [--variables VARS]              # Test automation job
-netpicker automation execute-job --name <NAME> [options...]   # Execute automation job
-netpicker automation logs [--job-name JOB] [--status STATUS] [--page N] [--size N] [--format FORMAT]  # View automation logs
+netpicker automation execute-job --name <NAME> [--devices DEVICES|--tags TAGS] [--variables VARS]   # Execute automation job
+netpicker automation logs [--job-name JOB] [--batch-id ID] [--status STATUS] [--page N] [--size N] [--format FORMAT]  # View log batches, or executions within a batch
 netpicker automation show-log <LOG_ID> [--format FORMAT]                    # Show specific log entry
 netpicker automation list-queue [--format FORMAT]                           # List job queues
 netpicker automation store-queue --name <NAME> --sources <SOURCES>          # Store job queue
@@ -421,8 +421,8 @@ netpicker automation list-jobs --pattern health
 # Show details of a specific job
 netpicker automation show-job my-backup-job
 
-# Execute a health check job on all devices
-netpicker automation execute-job --name network-health-check
+# Execute a job on a specific device
+netpicker automation execute-job --name network-health-check --devices 192.168.1.10
 
 # Execute a job on specific devices
 netpicker automation execute-job --name backup-config --devices 192.168.1.1,192.168.1.2
@@ -431,22 +431,30 @@ netpicker automation execute-job --name backup-config --devices 192.168.1.1,192.
 netpicker automation execute-job --name security-audit --tags production
 
 # Execute a job with custom variables
-netpicker automation execute-job --name custom-script --variables "timeout:30;retry:3"
+netpicker automation execute-job --name custom-script --devices 192.168.1.20 --variables "timeout:30;retry:3"
 
 # Test a job before execution
 netpicker automation test-job --name network-health-check --variables "threshold:80"
 
-# View automation logs (first 50, page 1)
+# View automation log batches (first 50, page 1)
+# Each entry is one execution run, with a per-status result count
 netpicker automation logs
 
 # View logs with custom page size
 netpicker automation logs --size 10 --page 1
 
-# View logs for a specific job
+# View log batches for a specific job
 netpicker automation logs --job-name network-health-check --status SUCCESS
 
-# Show details of a specific log entry
+# Drill into a batch to see the individual per-device executions
+netpicker automation logs --batch-id f1961371-b9c1-4987-a65d-8c9e29dee03f
+
+# Show details of a specific log entry (IDs come from --batch-id above)
 netpicker automation show-log 123456789012345678
+
+# Note: execute-job returns a confirmation message, not a job ID
+# Use logs to retrieve execution records and IDs for a job
+netpicker automation logs --job-name network-health-check
 
 # Store a new automation job from a file
 netpicker automation store-job-file --name my-job --file job_config.py
@@ -606,7 +614,7 @@ pip install netpicker-cli
 
 **Automation:**
 - `automation_list_jobs` - List available automation jobs
-- `automation_execute_job` - Execute automation jobs
+- `automation_execute_job` - Execute automation jobs on target devices or tags; use logs to retrieve execution IDs
 
 #### AI Assistant Examples
 

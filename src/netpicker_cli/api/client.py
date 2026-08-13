@@ -9,7 +9,7 @@ from typing import Any, Dict, Final, Optional, Type, Union
 
 import httpx
 
-from .errors import ApiError, Unauthorized, TooManyRequests, ServerError
+from .errors import ApiError, Unauthorized, TooManyRequests, ServerError, Conflict
 from ..utils.config import Settings
 from ..utils.logging import get_logger, log_api_call, log_api_response, log_error_with_context
 from ..utils.proxy import should_bypass_proxy
@@ -68,6 +68,15 @@ class AsyncApiClient:
                     from .errors import NotFound
                     log_error_with_context(NotFound("Resource not found"), f"URL: {url}")
                     raise NotFound("Resource not found")
+                if r.status_code == 409:
+                    body = ""
+                    try:
+                        body = r.text
+                    except Exception:
+                        body = "<unavailable>"
+                    error = Conflict(f"Resource already exists or conflict: {body}")
+                    log_error_with_context(error, f"URL: {url}")
+                    raise error
                 if r.status_code == 429:
                     log_error_with_context(TooManyRequests("Rate limited"), f"URL: {url}")
                     raise TooManyRequests("Rate limited")
@@ -214,6 +223,15 @@ class ApiClient:
                 if r.status_code == 404:
                     from .errors import NotFound
                     error = NotFound("Resource not found")
+                    log_error_with_context(error, f"URL: {url}")
+                    raise error
+                if r.status_code == 409:
+                    body = ""
+                    try:
+                        body = r.text
+                    except Exception:
+                        body = "<unavailable>"
+                    error = Conflict(f"Resource already exists or conflict: {body}")
                     log_error_with_context(error, f"URL: {url}")
                     raise error
                 if r.status_code == 429:

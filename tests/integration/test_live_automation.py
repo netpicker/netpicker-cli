@@ -56,7 +56,7 @@ def ensure_auth():
             "Not authenticated — run `netpicker auth login` first.\n"
             f"  output: {result.output}"
         )
-    return json.loads(result.output)
+    return json.loads(result.stdout)
 
 
 @pytest.fixture(scope="module")
@@ -66,22 +66,41 @@ def existing_job(ensure_auth):
         "automation", "list-jobs", "--format", "json", "--no-cache",
     ])
     assert result.exit_code == 0, f"list-jobs failed:\n{result.output}"
-    jobs = json.loads(result.output)
+    jobs = json.loads(result.stdout)
     if not jobs:
         pytest.skip("No automation jobs in tenant")
     return jobs[0]
 
 
 @pytest.fixture(scope="module")
-def existing_log(ensure_auth):
-    """Discover an existing log entry for read-only tests."""
+def existing_batch(ensure_auth):
+    """Discover an existing log batch for read-only tests."""
     result = runner.invoke(app, [
         "automation", "logs", "--format", "json", "--size", "1",
     ])
     assert result.exit_code == 0, f"logs failed:\n{result.output}"
-    logs = json.loads(result.output)
-    if not logs:
+    batches = json.loads(result.stdout)
+    if not batches:
         pytest.skip("No automation logs in tenant")
+    return batches[0]
+
+
+@pytest.fixture(scope="module")
+def existing_log(existing_batch):
+    """Discover an individual execution inside a batch.
+
+    The logs listing returns batch summaries; the per-execution records that
+    carry an ``id`` live one level down, under --batch-id.
+    """
+    result = runner.invoke(app, [
+        "automation", "logs",
+        "--batch-id", existing_batch["batch_id"],
+        "--format", "json", "--size", "1",
+    ])
+    assert result.exit_code == 0, f"logs --batch-id failed:\n{result.output}"
+    logs = json.loads(result.stdout)
+    if not logs:
+        pytest.skip("No executions in batch")
     return logs[0]
 
 
@@ -92,7 +111,7 @@ def existing_queue_item(ensure_auth):
         "automation", "list-queue", "--format", "json", "--size", "1",
     ])
     assert result.exit_code == 0, f"list-queue failed:\n{result.output}"
-    items = json.loads(result.output)
+    items = json.loads(result.stdout)
     if not items:
         pytest.skip("No queue entries in tenant")
     return items[0]
@@ -111,7 +130,7 @@ class TestListFixtures:
             "automation", "list-fixtures", "--format", "json", "--no-cache",
         ])
         assert result.exit_code == 0, f"list-fixtures failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, list)
         assert len(data) > 0, "no fixtures returned"
         # Fixtures may come as raw strings or {"fixture": name} dicts
@@ -138,7 +157,7 @@ class TestListJobs:
             "automation", "list-jobs", "--format", "json", "--no-cache",
         ])
         assert result.exit_code == 0, f"list-jobs failed:\n{result.output}"
-        jobs = json.loads(result.output)
+        jobs = json.loads(result.stdout)
         assert isinstance(jobs, list)
         assert len(jobs) > 0, "no jobs returned"
         first = jobs[0]
@@ -159,7 +178,7 @@ class TestListJobs:
             "--format", "json", "--no-cache",
         ])
         assert result.exit_code == 0
-        filtered = json.loads(result.output)
+        filtered = json.loads(result.stdout)
         assert isinstance(filtered, list)
         assert len(filtered) >= 1
         assert any(j["name"] == name for j in filtered)
@@ -175,7 +194,7 @@ class TestShowJob:
             "automation", "show-job", name, "--format", "json",
         ])
         assert result.exit_code == 0, f"show-job failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, dict)
         assert "jobs" in data or "sources" in data, (
             f"expected 'jobs' or 'sources' keys, got: {list(data.keys())}"
@@ -215,7 +234,7 @@ class TestStoreJob:
         ])
         # Accept either success (if server is fixed) or graceful error exit
         if result.exit_code == 0:
-            data = json.loads(result.output)
+            data = json.loads(result.stdout)
             assert data  # created successfully
         else:
             assert result.exit_code == 1
@@ -248,7 +267,7 @@ class TestStoreJobFile:
             "--format", "json",
         ])
         if result.exit_code == 0:
-            data = json.loads(result.output)
+            data = json.loads(result.stdout)
             assert data
         else:
             assert result.exit_code == 1
@@ -279,7 +298,7 @@ class TestTestJob:
             "--format", "json",
         ])
         assert result.exit_code == 0, f"test-job failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, dict)
         # Debug response has specific keys
         assert "nodeid" in data or "status" in data, (
@@ -325,16 +344,29 @@ class TestLogs:
     """automation logs (GET /automation/{tenant}/logs)"""
 
     def test_16_logs_json(self, ensure_auth):
-        """logs --format json returns paginated log entries."""
+        """logs --format json returns paginated batch summaries."""
         result = runner.invoke(app, [
             "automation", "logs", "--format", "json", "--size", "5",
         ])
         assert result.exit_code == 0, f"logs failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, list)
         assert len(data) > 0, "no log entries returned"
         first = data[0]
-        assert "id" in first, f"log entry missing 'id' key: {list(first.keys())}"
+        assert "batch_id" in first, f"batch missing 'batch_id' key: {list(first.keys())}"
+
+    def test_16b_logs_by_batch_id_json(self, ensure_auth, existing_batch):
+        """logs --batch-id returns the executions within a batch."""
+        result = runner.invoke(app, [
+            "automation", "logs",
+            "--batch-id", existing_batch["batch_id"],
+            "--format", "json", "--size", "5",
+        ])
+        assert result.exit_code == 0, f"logs --batch-id failed:\n{result.output}"
+        data = json.loads(result.stdout)
+        assert isinstance(data, list)
+        assert len(data) > 0, "no executions returned for batch"
+        assert "id" in data[0], f"execution missing 'id' key: {list(data[0].keys())}"
 
     def test_17_logs_table(self, ensure_auth):
         """logs in table format shows readable output."""
@@ -357,7 +389,7 @@ class TestLogs:
             "--format", "json", "--size", "5",
         ])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, list)
         # Filtered results should contain the specified job
         if data:
@@ -374,7 +406,7 @@ class TestLogs:
             "--format", "json",
         ])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, list)
         assert len(data) <= 2
 
@@ -389,7 +421,7 @@ class TestShowLog:
             "automation", "show-log", log_id, "--format", "json",
         ])
         assert result.exit_code == 0, f"show-log failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, dict)
         assert data.get("id") == log_id
 
@@ -419,7 +451,7 @@ class TestListQueue:
             "automation", "list-queue", "--format", "json", "--size", "5",
         ])
         assert result.exit_code == 0, f"list-queue failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, list)
         # Queue may be empty or have entries
         if data:
@@ -446,7 +478,7 @@ class TestListQueue:
             "--format", "json",
         ])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, list)
         assert len(data) <= 2
 
@@ -461,7 +493,7 @@ class TestShowQueue:
             "automation", "show-queue", qid, "--format", "json",
         ])
         assert result.exit_code == 0, f"show-queue failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert isinstance(data, dict)
         assert data.get("id") == qid
 
@@ -498,7 +530,7 @@ class TestStoreQueue:
             "--format", "json",
         ])
         if result.exit_code == 0:
-            data = json.loads(result.output)
+            data = json.loads(result.stdout)
             assert data
         else:
             assert result.exit_code == 1

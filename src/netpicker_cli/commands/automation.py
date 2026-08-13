@@ -5,7 +5,7 @@ from ..utils.config import load_settings
 from ..api.client import ApiClient
 from ..api.errors import ApiError, NotFound
 from ..utils.output import OutputFormatter, OutputFormat
-from ..utils.helpers import extract_items_from_response, format_tags_for_display
+from ..utils.helpers import extract_items_from_response, format_status_counts, format_tags_for_display
 from ..utils.cache import get_session_cache
 
 app = typer.Typer(add_completion=False)
@@ -38,7 +38,9 @@ def main_callback(ctx: typer.Context) -> None:
         typer.echo("")
         typer.echo("Examples:")
         typer.echo("  netpicker automation list-jobs")
-        typer.echo("  netpicker automation execute-job --name my-job")
+        typer.echo("  netpicker automation execute-job --name my-job --devices 10.0.0.1")
+        typer.echo("  netpicker automation execute-job --name my-job --tags prod --variables key:value")
+        typer.echo("  netpicker automation logs --job-name my-job  # Retrieve execution results")
         typer.echo("  netpicker automation show-job my-job")
         typer.echo("  netpicker automation list-queue")
         typer.echo("")
@@ -180,7 +182,6 @@ def list_jobs(
         typer.echo(f"  {name}:")
         typer.echo(f"    Platforms: {platforms}")
         typer.echo(f"    Variables: {variables}")
-        typer.echo(f"    Simple: {is_simple}")
         typer.echo(f"    Simple: {is_simple}")
         typer.echo()
 
@@ -363,12 +364,14 @@ def show_job(
         typer.echo(f"Simple: {job.get('is_simple', False)}")
         
         # Display signature
-        signature = job.get("signature", {})
-        params = signature.get("params", [])
+        signature = job.get("signature") or {}
+        params = signature.get("params") or []
         if params:
             typer.echo("Parameters:")
             for param in params:
-                param_type = param.get("annotated", {}).get("annotation", "unknown")
+                # ``annotated`` is null for untyped parameters
+                annotated = param.get("annotated") or {}
+                param_type = annotated.get("annotation") or "unknown"
                 if param_type.startswith("builtins."):
                     param_type = param_type.replace("builtins.", "")
                 elif param_type == "inspect._empty":
@@ -558,7 +561,6 @@ def test_job(
 @app.command("execute-job")
 def execute_job(
     name: str = typer.Option(..., "--name", help="Job name"),
-    sources: str = typer.Option(None, help="Source files as 'filename:content' pairs, separated by semicolons"),
     variables: str = typer.Option(None, help="Variables as 'key:value' pairs, separated by semicolons"),
     tags: str = typer.Option(None, help="Tags as comma-separated list"),
     devices: str = typer.Option(None, help="Devices as comma-separated list"),
@@ -570,29 +572,17 @@ def execute_job(
     Execute an automation job.
 
     Calls POST /api/v1/automation/{tenant}/execute to run a job on target devices.
-    Provide job sources, variables, and target devices/tags for execution.
-    Use --json to see the raw response.
+    Requires either --devices or --tags (or both) to specify target devices.
+    Pass job variables via --variables as 'key:value' pairs (semicolon-separated for multiple).
+    The endpoint returns a confirmation message, not a job ID.
+    Use 'netpicker automation logs --job-name <job-name>' to retrieve execution results with IDs.
+    Use --format json to see the raw response.
     """
     s = load_settings()
     cli = ApiClient(s)
     
     # Build payload
     payload = {"name": name}
-    
-    # Parse sources if provided
-    if sources:
-        sources_dict = {}
-        try:
-            for source_pair in sources.split(";"):
-                if ":" not in source_pair:
-                    typer.echo(f"Invalid source format: {source_pair}. Use 'filename:content'")
-                    raise typer.Exit(code=1)
-                filename, content = source_pair.split(":", 1)
-                sources_dict[filename.strip()] = content.strip()
-            payload["sources"] = sources_dict
-        except Exception as e:
-            typer.echo(f"Error parsing sources: {e}")
-            raise typer.Exit(code=1)
     
     # Parse variables if provided
     if variables:
@@ -651,6 +641,7 @@ def execute_job(
 @app.command("logs")
 def logs(
     job_name: str = typer.Option(None, "--job-name", help="Filter by job name"),
+    batch_id: str = typer.Option(None, "--batch-id", help="Show individual executions within a batch"),
     ipaddress: str = typer.Option(None, "--ipaddress", help="Filter by IP address"),
     exec_at: str = typer.Option(None, "--exec-at", help="Filter by execution time as 'operator:value' pairs, comma-separated"),
     created: str = typer.Option(None, "--created", help="Filter by creation time as 'operator:value' pairs, comma-separated"),
@@ -721,13 +712,19 @@ def logs(
     if ordering:
         params["ordering"] = [field.strip() for field in ordering.split(",")]
     
-    # Build URL with query parameters
-    url = f"/api/v1/automation/{s.tenant}/logs"
+    # Build URL with query parameters.
+    # Without --batch-id the API returns one entry per execution *batch*;
+    # with it, the per-device executions inside that batch.
+    if batch_id:
+        url = f"/api/v1/automation/{s.tenant}/logs/{batch_id}"
+        params.pop("job_name", None)  # not accepted on the drill-down endpoint
+    else:
+        url = f"/api/v1/automation/{s.tenant}/logs"
     if params:
         from urllib.parse import urlencode
         query_string = urlencode(params, doseq=True)  # doseq=True for arrays
         url += f"?{query_string}"
-    
+
     try:
         response = cli.get(url)
         data = response.json()
@@ -745,19 +742,32 @@ def logs(
         format = "json"
     if format != "table" or output_file:
         items = extract_items_from_response(data)
-        rows = [
-            {
-                "id": it.get("id", ""),
-                "job": it.get("job_name", ""),
-                "ip": it.get("ipaddress", ""),
-                "status": it.get("status", ""),
-                "exec_at": it.get("exec_at", ""),
-                "created": it.get("created", ""),
-                "exec_ns": it.get("exec_ns", 0),
-            }
-            for it in items
-        ]
-        headers = ["id", "job", "ip", "status", "exec_at", "created", "exec_ns"]
+        if batch_id:
+            rows = [
+                {
+                    "id": it.get("id", ""),
+                    "job": it.get("job_name", ""),
+                    "ip": it.get("ipaddress", ""),
+                    "status": it.get("status", ""),
+                    "exec_at": it.get("exec_at", ""),
+                    "created": it.get("created", ""),
+                    "exec_ns": it.get("exec_ns", 0),
+                }
+                for it in items
+            ]
+            headers = ["id", "job", "ip", "status", "exec_at", "created", "exec_ns"]
+        else:
+            rows = [
+                {
+                    "batch_id": it.get("batch_id", ""),
+                    "job": it.get("job_name", ""),
+                    "initiator": it.get("initiator", ""),
+                    "status_counts": format_status_counts(it.get("status_counts")),
+                    "created": it.get("created", ""),
+                }
+                for it in items
+            ]
+            headers = ["batch_id", "job", "initiator", "status_counts", "created"]
         OutputFormatter(format=format, output_file=output_file).output(rows, headers=headers)
         return
 
@@ -771,10 +781,27 @@ def logs(
     if not items:
         typer.echo("No logs found.")
         return
-    
+
+    if not batch_id:
+        # Batch summaries: one entry per execution run.
+        typer.echo(f"Job Log Batches (Page {page_num}/{pages}, Total: {total}):")
+        typer.echo()
+        for item in items:
+            typer.echo(f"Batch ID: {item.get('batch_id', '')}")
+            typer.echo(f"Job: {item.get('job_name', '')}")
+            typer.echo(f"Initiator: {item.get('initiator', '')}")
+            typer.echo(f"Created: {item.get('created', '')}")
+            typer.echo(f"Results: {format_status_counts(item.get('status_counts')) or 'none'}")
+            typer.echo("-" * 50)
+        typer.echo(
+            "Use 'netpicker automation logs --batch-id <BATCH_ID>' to list "
+            "individual executions."
+        )
+        return
+
     typer.echo(f"Job Logs (Page {page_num}/{pages}, Total: {total}):")
     typer.echo()
-    
+
     for item in items:
         typer.echo(f"ID: {item.get('id', '')}")
         typer.echo(f"Job: {item.get('job_name', '')} (ID: {item.get('job_id', '')})")
@@ -784,7 +811,7 @@ def logs(
         typer.echo(f"Executed At: {item.get('exec_at', '')}")
         typer.echo(f"Created: {item.get('created', '')}")
         typer.echo(f"Execution Time: {item.get('exec_ns', 0)} ns")
-        
+
         # Display variables if any
         variables = item.get('variables', {})
         if variables:
@@ -823,14 +850,15 @@ def show_log(
     """
     Get details of a specific job log entry.
 
-    Calls GET /api/v1/automation/{tenant}/logs/{id} to get a specific log entry.
+    Calls GET /api/v1/automation/{tenant}/log/{id} to get a specific log entry.
+    Log IDs come from 'netpicker automation logs --batch-id <BATCH_ID>'.
     Use --json to see the raw response.
     """
     s = load_settings()
     cli = ApiClient(s)
-    
+
     try:
-        response = cli.get(f"/api/v1/automation/{s.tenant}/logs/{log_id}")
+        response = cli.get(f"/api/v1/automation/{s.tenant}/log/{log_id}")
         data = response.json()
     except NotFound:
         typer.echo(f"Log entry '{log_id}' not found for tenant '{s.tenant}'.")

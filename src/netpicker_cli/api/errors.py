@@ -18,3 +18,7 @@ class ServerError(ApiError):
 
 class NotFound(ApiError):
     """404 resource not found."""
+
+
+class Conflict(ApiError):
+    """409 Conflict - resource already exists or state conflict."""

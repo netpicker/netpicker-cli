@@ -154,6 +154,28 @@ def format_tags_for_display(tags: Any) -> str:
     return ""
 
 
+def format_status_counts(counts: Any) -> str:
+    """
+    Format a job batch's status counts for display.
+
+    Args:
+        counts: Mapping of status name to occurrence count
+
+    Returns:
+        Comma-separated "STATUS:count" pairs, or empty string if no counts
+
+    Examples:
+        >>> format_status_counts({"SUCCESS": 3, "FAILED": 1})
+        'SUCCESS:3, FAILED:1'
+
+        >>> format_status_counts(None)
+        ''
+    """
+    if not isinstance(counts, dict):
+        return ""
+    return ", ".join(f"{status}:{count}" for status, count in counts.items())
+
+
 # ============================================================================
 # Regex Pattern Helpers
 # ============================================================================

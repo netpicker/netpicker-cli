@@ -514,7 +514,7 @@ class TestAuditCLI:
         from netpicker_cli.commands.audit import app as audit_app
         result = runner.invoke(audit_app, ["report", "--format", "json", "--no-parallel"])
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data["tenant"] == "test-tenant"
         assert "sections" in data
         assert len(data["sections"]) == 4
@@ -578,7 +578,7 @@ class TestAuditCLI:
             audit_app, ["report", "--tag", "production", "--format", "json", "--no-parallel"],
         )
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         assert data["tag_filter"] == "production"
 
     @patch("netpicker_cli.commands.audit.load_settings")
@@ -600,7 +600,7 @@ class TestAuditCLI:
             audit_app, ["report", "--stale-days", "1", "--format", "json", "--no-parallel"],
         )
         assert result.exit_code == 0
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         backups_section = [s for s in data["sections"] if s["name"] == "backups"][0]
         assert backups_section["summary"]["stale_threshold_days"] == 1
 
@@ -677,8 +677,8 @@ class TestParallelCollection:
         assert result_seq.exit_code == 0
         assert result_par.exit_code == 0
 
-        seq_data = json.loads(result_seq.output)
-        par_data = json.loads(result_par.output)
+        seq_data = json.loads(result_seq.stdout)
+        par_data = json.loads(result_par.stdout)
 
         seq_names = sorted(s["name"] for s in seq_data["sections"])
         par_names = sorted(s["name"] for s in par_data["sections"])

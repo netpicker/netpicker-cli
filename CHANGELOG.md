@@ -1,5 +1,21 @@
 # Changelog
 
+## 0.2.2 — Unreleased
+
+### Fixed
+- Corrected `automation execute-job` examples and help text to show the required target selection via `--devices` or `--tags`, and clarified that execution returns a confirmation message rather than a job ID
+- Updated automation documentation to direct users to `netpicker automation logs --job-name <job-name>` for retrieving execution records, and to `netpicker automation logs --batch-id <batch-id>` for the individual execution IDs within a run
+- Fixed the MCP `automation_execute_job` wrapper to forward job variables with `--variables` instead of the invalid `--fixtures` flag
+- Fixed `backups recent` `--limit` parameter not working: API uses `size` parameter, not `limit`. Now respects `--limit` correctly (was always returning 50 items regardless of limit)
+- Improved error message when attempting to create a duplicate device: now shows user-friendly message "Device with IP 'x.x.x.x' already exists in tenant 'TenantName'" instead of raw 409 Conflict API error with IntegrityError detail
+- Fixed `automation logs` showing blank fields: the API now returns execution *batches* (`batch_id`, `job_name`, `initiator`, `status_counts`, `created`) rather than individual executions. The listing renders batch summaries, and the new `--batch-id` option drills into the individual executions within a batch
+- Fixed `automation show-log` printing an empty entry: it called `/automation/{tenant}/logs/{id}` (a paginated batch listing) and parsed it as a single object. It now calls `/automation/{tenant}/log/{id}` and correctly reports a non-existent ID as an error
+- Fixed `automation show-job` crashing with `AttributeError` when a job parameter has no type annotation (the API now returns `annotated: null`)
+- Fixed log messages being written to stdout, which corrupted machine-readable output — `netpicker audit report --format json | jq` failed because informational lines preceded the JSON. All log output now goes to stderr, leaving stdout for command output only. This also fixes the MCP `audit_report` tool, which returned unparseable JSON to AI assistants
+- Fixed the raw API error appearing alongside the friendly message on a duplicate device create; the underlying error is now logged at debug level (visible with `--verbose`)
+- Uncaught API errors are now reported as a message on stderr with a non-zero exit status instead of an unhandled traceback
+- Removed a duplicated `Simple:` line in `automation list-jobs` output
+
 ## 0.2.1 — 2026-03-04
 
 ### Fixed

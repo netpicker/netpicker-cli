@@ -140,7 +140,7 @@ def recent(
     """
     s = load_settings()
     cli = ApiClient(s)
-    data = cli.get(f"/api/v1/devices/{s.tenant}/recent-configs/", params={"limit": limit}).json()
+    data = cli.get(f"/api/v1/devices/{s.tenant}/recent-configs/", params={"size": limit}).json()
     items = extract_items_from_response(data)
     
     if json_out:
@@ -378,7 +378,7 @@ def search_configs(
                         break
         else:
             # search recent configs across all devices
-            resp = cli.get(f"/api/v1/devices/{s.tenant}/recent-configs/", params={"limit": max(limit, 100)}).json()
+            resp = cli.get(f"/api/v1/devices/{s.tenant}/recent-configs/", params={"size": max(limit, 100)}).json()
             src = extract_items_from_response(resp)
             for it in src:
                 if _match(it):

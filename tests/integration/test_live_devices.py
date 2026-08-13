@@ -45,7 +45,7 @@ def ensure_auth():
             "Not authenticated — run `netpicker auth login` first.\n"
             f"  output: {result.output}"
         )
-    data = json.loads(result.output)
+    data = json.loads(result.stdout)
     assert data.get("base_url"), "base_url is empty — check your auth config"
     return data
 
@@ -70,7 +70,7 @@ class TestLiveDeviceWorkflow:
             "--format", "json",
         ])
         assert result.exit_code == 0, f"create failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         # The API may return a dict or wrap in a list — normalise
         item = data[0] if isinstance(data, list) else data
         assert item.get("ipaddress") == TEST_IP or TEST_IP in result.output
@@ -83,7 +83,7 @@ class TestLiveDeviceWorkflow:
             "devices", "show", TEST_IP, "--format", "json",
         ])
         assert result.exit_code == 0, f"show failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         # show may return a dict or a single-element list
         item = data[0] if isinstance(data, list) else data
         assert item.get("ipaddress") == TEST_IP
@@ -96,7 +96,7 @@ class TestLiveDeviceWorkflow:
             "devices", "show", TEST_IP, "--format", "json",
         ])
         assert result.exit_code == 0, f"show failed:\n{result.output}"
-        data = json.loads(result.output)
+        data = json.loads(result.stdout)
         # show may return a dict or a single-element list
         item = data[0] if isinstance(data, list) else data
         assert item.get("ipaddress") == TEST_IP
@@ -132,7 +132,7 @@ class TestLiveDeviceWorkflow:
             "devices", "list", "--tag", existing_tag, "--format", "json", "--no-cache",
         ])
         assert result.exit_code == 0, f"list --tag failed:\n{result.output}"
-        filtered = json.loads(result.output)
+        filtered = json.loads(result.stdout)
         assert len(filtered) > 0, f"--tag {existing_tag} returned no devices"
 
     def test_03c_list_by_nonexistent_tag_empty(self, ensure_auth):
@@ -141,7 +141,7 @@ class TestLiveDeviceWorkflow:
             "devices", "list", "--tag", "no-such-tag-xyz-999", "--format", "json", "--no-cache",
         ])
         assert result.exit_code == 0
-        devices = json.loads(result.output)
+        devices = json.loads(result.stdout)
         assert devices == [], f"expected empty list, got {len(devices)} devices"
 
     # -- Step 4: Delete -------------------------------------------------------

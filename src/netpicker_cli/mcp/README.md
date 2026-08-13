@@ -56,7 +56,7 @@ The MCP server exposes the following tools:
 
 ### Automation
 - `automation_list_jobs` - List automation jobs
-- `automation_execute_job` - Execute automation job
+- `automation_execute_job` - Execute automation job on target devices or tags using variables passed through to the CLI
 
 ### Health Monitoring
 - `health_check` - Check system health
@@ -78,7 +78,8 @@ Once configured, you can ask Claude to:
 - "Check the backup history for device 192.168.1.1"
 - "Create a compliance policy for security rules"
 - "Test if this config complies with our security policy"
-- "Execute the network backup automation job"
+- "Execute the network backup automation job on 192.168.1.10"
+- "Run an automation job with variables and then check its logs"
 
 ## Development
 
