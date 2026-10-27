@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.2.2 — Unreleased
+## 0.2.2 — 2026-10-27
 
 ### Added
 - `netpicker auth token create|list|revoke` for managing API tokens, and `netpicker auth scopes` to list the scopes the server accepts. These are the first `auth` commands that call the API; `login`/`logout` remain purely local
