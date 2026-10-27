@@ -52,6 +52,51 @@ This securely stores your token in the OS keyring and saves URL/tenant to `~/.co
 
 > **Note**: The config file is only created when using `netpicker auth login`. If you prefer environment variables, the config file won't be created.
 
+#### Managing API Tokens
+
+Once logged in, you can mint further tokens — for CI jobs, scripts, or
+integrations — without going back to the web UI:
+
+```bash
+# List the scopes the server accepts
+netpicker auth scopes
+
+# Create a token (defaults to a 90-day lifetime)
+netpicker auth token create --ttl 90d --scopes devices:read,jobs:read
+
+# Shorter or longer lifetimes: 30m, 12h, 90d, 2w, raw seconds, or 'never'
+netpicker auth token create --ttl 12h
+netpicker auth token create --ttl never
+
+# List existing tokens
+netpicker auth token list
+netpicker auth token list --active     # or --revoked
+netpicker auth token list --all        # follow pagination; see every token
+
+# Revoke a token by its trailing characters, as shown by `list`
+netpicker auth token revoke dEVi3wvMmkSCQppg
+```
+
+A created token can never exceed your own access: the server intersects the
+scopes you request with the scopes you hold, and `create` tells you if any
+were dropped.
+
+> **Lifetimes**: `--ttl` is always sent explicitly. The API's own default is
+> 15 seconds, so omitting it server-side would produce an unusable token;
+> the CLI defaults to 90 days instead. Use `--ttl never` for a
+> non-expiring token.
+
+> **Identifying tokens**: tokens have no name or ID, and every JWT shares a
+> long leading prefix, so `list` abbreviates each one to its *last* 16
+> characters and `revoke` matches on that trailing fragment. Use
+> `--format json` for full token values.
+
+> **Pagination**: tokens carry no creation timestamp, so the API cannot order
+> them by age and a token you just created may not appear on the first page.
+> `list` tells you when results are truncated; pass `--all` for the complete
+> set. `revoke` always searches every page, so a token's position never
+> prevents revoking it.
+
 #### Alternative: Environment Variables
 
 **Unix/macOS:**
@@ -143,6 +188,25 @@ export NETPICKER_QUIET=1      # Always enable quiet mode
 netpicker health
 netpicker whoami --json | jq .
 ```
+
+---
+
+## 🔑 Authentication & Tokens
+
+### Commands
+
+```bash
+netpicker auth login --base-url <URL> --tenant <TENANT> [--token TOKEN]   # Save credentials
+netpicker auth logout [--base-url URL] [--tenant TENANT]                  # Clear credentials
+netpicker auth scopes [--format FORMAT]                                   # List scopes the server accepts
+netpicker auth token create [--ttl DURATION] [--scopes SCOPES] [--format FORMAT]  # Create an API token
+netpicker auth token list [--active|--revoked] [--page N] [--size N] [--all] [--format FORMAT]  # List API tokens
+netpicker auth token revoke <TOKEN> [--force]                             # Revoke an API token
+```
+
+`--ttl` accepts `30m`, `12h`, `90d`, `2w`, a bare number of seconds, or
+`never`; it defaults to `90d`. See
+[Managing API Tokens](#managing-api-tokens) for details.
 
 ---
 

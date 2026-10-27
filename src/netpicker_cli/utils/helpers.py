@@ -176,6 +176,84 @@ def format_status_counts(counts: Any) -> str:
     return ", ".join(f"{status}:{count}" for status, count in counts.items())
 
 
+# Matches the API's MAX_TTL_API_TOKEN, which caps token lifetime at roughly a
+# thousand years — the "no expiry" case.
+NEVER_EXPIRES_SECONDS = 365 * 24 * 60 * 60 * 1000
+
+_DURATION_UNITS = {"s": 1, "m": 60, "h": 3600, "d": 86400, "w": 604800}
+
+
+def parse_duration(value: str) -> int:
+    """
+    Parse a human duration into seconds.
+
+    Accepts a unit suffix (s, m, h, d, w), a bare number of seconds, or
+    "never" for the API's maximum token lifetime.
+
+    Args:
+        value: Duration such as "90d", "12h", "3600" or "never"
+
+    Returns:
+        The duration in seconds
+
+    Raises:
+        ValueError: If the duration cannot be parsed or is not positive
+
+    Examples:
+        >>> parse_duration("90d")
+        7776000
+
+        >>> parse_duration("3600")
+        3600
+
+        >>> parse_duration("never") == NEVER_EXPIRES_SECONDS
+        True
+    """
+    raw = (value or "").strip().lower()
+    if not raw:
+        raise ValueError("Duration cannot be empty")
+    if raw in ("never", "none", "no-expiry"):
+        return NEVER_EXPIRES_SECONDS
+
+    unit = _DURATION_UNITS.get(raw[-1])
+    number = raw[:-1] if unit else raw
+    try:
+        amount = int(number)
+    except ValueError:
+        raise ValueError(
+            f"Invalid duration '{value}'. Use a number of seconds, a value with a "
+            "unit (e.g. 30m, 12h, 90d, 2w), or 'never'."
+        )
+    if amount <= 0:
+        raise ValueError(f"Duration must be positive, got '{value}'")
+    return amount * (unit or 1)
+
+
+def format_duration(seconds: int) -> str:
+    """
+    Render a number of seconds as a compact human duration.
+
+    Args:
+        seconds: Duration in seconds
+
+    Returns:
+        A short label such as "90d", "12h" or "never"
+
+    Examples:
+        >>> format_duration(7776000)
+        '90d'
+
+        >>> format_duration(NEVER_EXPIRES_SECONDS)
+        'never'
+    """
+    if seconds >= NEVER_EXPIRES_SECONDS:
+        return "never"
+    for suffix, size in (("w", 604800), ("d", 86400), ("h", 3600), ("m", 60)):
+        if seconds >= size and seconds % size == 0:
+            return f"{seconds // size}{suffix}"
+    return f"{seconds}s"
+
+
 # ============================================================================
 # Regex Pattern Helpers
 # ============================================================================

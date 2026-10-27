@@ -2,6 +2,13 @@
 
 ## 0.2.2 — Unreleased
 
+### Added
+- `netpicker auth token create|list|revoke` for managing API tokens, and `netpicker auth scopes` to list the scopes the server accepts. These are the first `auth` commands that call the API; `login`/`logout` remain purely local
+- `--ttl` accepts durations (`30m`, `12h`, `90d`, `2w`), raw seconds, or `never` for a non-expiring token, and defaults to `90d`. A lifetime is always sent explicitly because the API's own default is 15 seconds, which would yield an unusable token
+- `auth token create` reports any requested scopes the server declined, since it silently intersects the request with the caller's own scopes
+- `auth token revoke` accepts a token's trailing characters rather than the full ~400-character JWT, and refuses to act on an ambiguous match. Tokens have no name or id, and every JWT shares a long leading prefix, so `auth token list` abbreviates each to its last 16 characters — which is what `revoke` matches on
+- `auth token list --all` follows pagination, and the default view reports when results are truncated. Tokens have no creation timestamp, so the API cannot order them by age and a newly created token may not be on the first page; `revoke` searches every page, so a token's position never prevents revoking it
+
 ### Fixed
 - Corrected `automation execute-job` examples and help text to show the required target selection via `--devices` or `--tags`, and clarified that execution returns a confirmation message rather than a job ID
 - Updated automation documentation to direct users to `netpicker automation logs --job-name <job-name>` for retrieving execution records, and to `netpicker automation logs --batch-id <batch-id>` for the individual execution IDs within a run
